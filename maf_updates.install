@@ -1,0 +1,3520 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function maf_updates_install() {
+  //run it explicitly because Drupal does not run hook_update_N during installation
+  maf_updates_update_7000();
+  maf_updates_update_7001();
+  maf_updates_update_7002();
+  maf_updates_update_7003();
+  maf_updates_update_7004();
+  maf_updates_update_7005();
+  maf_updates_update_7006();
+  maf_updates_update_7007();
+  maf_updates_update_7008();
+  maf_updates_update_7009();
+  maf_updates_update_7010();
+  maf_updates_update_7011();
+  maf_updates_update_7012();
+  maf_updates_update_7013();
+  maf_updates_update_7014();
+  maf_updates_update_7015();
+  maf_updates_update_7016();
+  maf_updates_update_7018();
+  maf_updates_update_7023();
+  maf_updates_update_7024();
+}
+
+/**
+ * Implements hook_update_dependencies().
+ */
+function maf_updates_update_dependencies() {
+  $dependencies['maf_updates'][7083] = array(
+    'system' => 7078,
+    'aggregator' => 7003,
+    'ctools' => 6008,
+    'dblog' => 7002,
+    'image' => 7005,
+    'field' => 7003,
+  );
+
+  $dependencies['media'][7203] = array(
+    'maf_updates' => 7269,
+  );
+
+  return $dependencies;
+}
+
+/**
+ * Turn "MAF AMI Contest" module on
+ */
+function maf_updates_update_7000() {
+  module_enable(array('maf_ami_contest'));
+}
+
+/**
+ * Turn "ami image" module on
+ */
+function maf_updates_update_7001() {
+  module_enable(array('ami_image'));
+}
+
+/**
+ * Reset all stickies
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7002() {
+  $before = _maf_updates_count_stickies();
+
+  db_query('UPDATE node SET node.`sticky` = 0')->execute();
+
+  return 'There was ' . $before . ' stickies. There are ' . _maf_updates_count_stickies() . ' stickies now.';
+}
+
+/**
+ * Reset all stickies
+ * @author Yurii Nesterenko
+ */
+function _maf_updates_count_stickies() {
+  $query = db_select('node', 'n')->condition('sticky', 1);
+  $query->addExpression('COUNT(*)');
+  return $query->execute()->fetchField(0);
+}
+
+/**
+ * Turn "elysia_cron" module on and set up a rule for 'scheduler_cron'
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7003() {
+  module_enable(array('elysia_cron'));
+  db_query("insert into {elysia_cron} (name, rule) values ('scheduler_cron', '* * * * *')");
+}
+
+/**
+ * Setup "drupal_weight_select_max" variable, revert "wonders_content_types" feature, enable "maf_gallery_context", "maf_blog_context" and "related_articles_block" features and
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7004() {
+  variable_set('drupal_weight_select_max', 1000);
+  features_revert_module('wonders_content_types');
+  module_enable(array(
+    'related_articles_block',
+    'maf_gallery_context',
+    'maf_blog_context'
+  ));
+  features_revert_module('maf_gallery_context');
+  features_revert_module('maf_blog_context');
+}
+
+
+/**
+ * Replace a rule for default job for "elysia_cron"
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7005() {
+  db_query("replace {elysia_cron} (name, rule) values (':default', '0 4 * * *')");
+}
+
+/**
+ * Enable and configure ami_services module.
+ * @author Sam T
+ */
+function maf_updates_update_7006() {
+  if (!module_exists('services')) {
+    module_enable(array('services'));
+  }
+
+  if (!module_exists('rest_server')) {
+    module_enable(array('rest_server'));
+  }
+
+  if (!module_exists('ami_services')) {
+    module_enable(array('ami_services'));
+  }
+
+  $msn_feeds_format = array(
+    'format' => 'msn_feeds',
+    'name' => 'MSN Feeds',
+    'weight' => 13,
+    'filters' => array(
+      'media_filter' => array(
+        'weight' => 1,
+        'status' => 1,
+      ),
+      'filter_html' => array(
+        'weight' => 2,
+        'status' => 1,
+        'settings' => array(
+          'allowed_html' => '<br> <p> <ul> <li> <strong> <b>',
+          'filter_html_help' => 1,
+          'filter_html_nofollow' => 0,
+        ),
+      ),
+      'filter_autop' => array(
+        'weight' => 3,
+        'status' => 1,
+      ),
+      'filter_htmlcorrector' => array(
+        'weight' => 10,
+        'status' => 1,
+      ),
+    ),
+  );
+  $msn_feeds_format = (object) $msn_feeds_format;
+  filter_format_save($msn_feeds_format);
+
+  variable_set('ami_services_msn_articles_total', '10');
+  variable_set('ami_services_msn_slideshows_total', '10');
+  variable_set('ami_services_msn_videos_total', '4');
+  variable_set('ami_services_msn_text_format', 'msn_feeds');
+  variable_set('ami_services_msn_image_style', '650x360_rotator');
+  variable_set('ami_services_msn_thumb_style', '158x90_rotator_thumb');
+  variable_set('ami_services_msn_default_attribution', 'AMI');
+
+  variable_set('ami_services_msn_feeds__article', array(
+    'articles' => 1,
+    'teaser_image_field' => 'field_teaser_image',
+    'body_field' => 'body',
+    'author_field' => 'field_byline',
+    'slideshows' => 0,
+    'images_field' => 'select',
+    'images_description_field' => 'select',
+    'videos' => 0,
+    'aol_video_field' => 'select',
+    'caption_field' => 'select',
+  ));
+
+  variable_set('ami_services_msn_feeds__gallery', array(
+    'articles' => 0,
+    'teaser_image_field' => 'select',
+    'body_field' => 'body',
+    'author_field' => 'field_byline',
+    'slideshows' => 1,
+    'images_field' => 'field_gallery_images:field_image',
+    'images_description_field' => 'field_gallery_images:field_description',
+    'videos' => 0,
+    'aol_video_field' => 'select',
+    'caption_field' => 'select',
+  ));
+
+  variable_set('ami_services_msn_feeds__video', array(
+    'articles' => 0,
+    'teaser_image_field' => 'select',
+    'body_field' => 'body',
+    'author_field' => 'field_byline',
+    'slideshows' => 0,
+    'images_field' => 'select',
+    'images_description_field' => 'select',
+    'videos' => 1,
+    'aol_video_field' => 'field_aol_video_id',
+    'caption_field' => 'field_promo_title',
+  ));
+}
+
+/**
+ * Enable "ami_add_another_item" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7007() {
+  if (!module_enable(array('ami_add_another_item'))) {
+    throw new DrupalUpdateException('It is impossible to enable "ami_add_another_item" module');
+  }
+}
+
+/**
+ * Enable "ami_clone_fix" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7008() {
+  if (!module_exists('ami_clone_fix')) {
+    if (!module_enable(array('ami_clone_fix'))) {
+      throw new DrupalUpdateException('It is impossible to enable "ami_clone_fix" module');
+    }
+  }
+  return '"ami_clone_fix" module is enabled';
+}
+
+/**
+ * Enable "fe_block" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7009() {
+  if (!module_exists('fe_block')) {
+    if (!module_enable(array('fe_block'))) {
+      throw new DrupalUpdateException('It is impossible to enable "fe_block" module');
+    }
+  }
+  return '"fe_block" module is enabled';
+}
+
+/**
+ * Enable "maf_nrelate_code" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7010() {
+  if (!module_exists('maf_nrelate_code')) {
+    if (!module_enable(array('maf_nrelate_code'))) {
+      throw new DrupalUpdateException('It is impossible to enable "maf_nrelate_code" module');
+    }
+  }
+  return '"maf_nrelate_code" module is enabled';
+}
+
+/**
+ * Enable "field_manager" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7011() {
+  if (!module_exists('field_manager')) {
+    if (!module_enable(array('field_manager'))) {
+      throw new DrupalUpdateException('It is impossible to enable "field_manager" module');
+    }
+  }
+  return '"field_manager" module is enabled';
+}
+
+/**
+ * Enable "ami_add_another_item" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7012() {
+  if (!module_enable(array('ami_add_another_item'))) {
+    throw new DrupalUpdateException('It is impossible to enable "ami_add_another_item" module');
+  }
+  return '"ami_add_another_item" module is enabled';
+}
+
+/**
+ * Enable "scrollbar" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7013() {
+  if (!module_enable(array('scrollbar'))) {
+    throw new DrupalUpdateException('It is impossible to enable "scrollbar" module');
+  }
+  return '"scrollbar" module is enabled';
+}
+
+/**
+ * Replace default value of "Elements to get the jScrollPane function" of "scrollbar" module with '.safe-non-existing-field-name' value
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7014() {
+  variable_set('scrollbar_element', '.safe-non-existing-field-name');
+  return 'The value is set';
+}
+
+/**
+ * Add a path to "Google Analytics" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7015() {
+  $pages = variable_get('googleanalytics_pages', '');
+  if (!in_array('contest-info/*/show-ad/*', preg_split('/$\R?^/m', $pages))) {
+    variable_set('googleanalytics_pages', $pages . "\ncontest-info/*/show-ad/*");
+    return '\'contest-info/*/show-ad/*\' path is added';
+  }
+  return '\'contest-info/*/show-ad/*\' path is already in the system';
+}
+
+/**
+ * Enable "ami_slideshow" , "ami_slideshow_field_collection", "memento" and "maf_slideshow" modules
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7016() {
+  if (!module_enable(array('ami_slideshow'))) {
+    throw new DrupalUpdateException('It is impossible to enable "ami_slideshow" module');
+  }
+  if (!module_enable(array('memento'))) {
+    throw new DrupalUpdateException('It is impossible to enable "memento" module');
+  }
+  if (!module_enable(array('ami_slideshow_field_collection'))) {
+    throw new DrupalUpdateException('It is impossible to enable "ami_slideshow_field_collection" module');
+  }
+  if (!module_enable(array('maf_slideshow'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_slideshow" module');
+  }
+
+  // jQuery update needs to be at version 1.7
+  variable_set('jquery_update_jquery_version', '1.7');
+
+  return '"ami_slideshow" , "ami_slideshow_field_collection", "memento" and "maf_slideshow" modules is enabled';
+}
+
+/**
+ * Add right_rail_workout block.
+ * Alexey Livadniy <alexey@boylesoftware.com>
+ */
+function maf_updates_update_7018() {
+  module_enable(array('right_rail_workout', 'workout_block'));
+  features_revert_module('right_rail_workout');
+}
+
+/**
+ * Fix styles rotator images.
+ * Alexey Livadniy <alexey@boylesoftware.com>
+ */
+function maf_updates_update_7023() {
+  if (!module_enable(array('maf_image_styles_display_modes_defaults'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_image_styles_display_modes_defaults" module');
+  }
+  $message = '"maf_image_styles_display_modes_defaults" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enable "more_term_name_videos_block" module
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7024() {
+  if (!module_enable(array('more_term_name_videos_block'))) {
+    throw new DrupalUpdateException('It is impossible to enable "more_term_name_videos_block" module');
+  }
+  return '"more_term_name_videos_block" module is enabled';
+}
+
+/**
+ * Activate maf_right_rail feature.
+ * Delete unused contexts
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7025() {
+  module_disable(array('right_rail_workout', 'workout_block'));
+  module_enable(array('maf_right_rail'));
+  $contexts = array(
+    'right_rail_default_all_pages',
+    'right_rail_workout',
+  );
+  foreach ($contexts as $context) {
+    $context_obj = context_load($context);
+    if ($context_obj) {
+      context_delete($context_obj);
+    }
+  }
+}
+
+/**
+ * Activate maf_dart_tags feature.
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7026() {
+  if (!module_enable(array('maf_dart_tags'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_dart_tags" module');
+  }
+  return '"maf_dart_tags" module is enabled';
+}
+
+/**
+ * Activate maf_views_norepeat_alter module.
+ * Change views_norepeat variables
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7076() {
+  $var = array(
+    'write' => 'write',
+    'read' => 0
+  );
+  variable_set('views_norepeat_maf_rotator', $var);
+
+  if (!module_enable(array('maf_views_norepeat_alter'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_views_norepeat_alter" module');
+  }
+  return '"maf_views_norepeat_alter" module is enabled';
+}
+
+/**
+ * Activate maf_menus feature.
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7077() {
+  if (!module_enable(array('maf_menus'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_menus" module');
+  }
+  return '"maf_menus" module is enabled';
+}
+
+/**
+ * Multi-pass update for general categories taxonomy
+ * Changes to workouts section MUSCLE-302
+ * Updates all aliases for terms itself and for nodes that are related to them,
+ * Creates URL redirects for aliases that had been changed
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7078(&$sandbox) {
+  $sandbox['#finished'] = 0;
+
+  // Array of changes
+  $terms_changes = array(
+    6 => array(
+      'name' => 'Workouts',
+      'path' => 'workouts',
+    ),
+    10 => array(
+      'name' => 'Abs Exercises',
+      'path' => 'workouts/abs-exercises',
+    ),
+    70 => array(
+      'name' => 'Workout Routines',
+      'path' => 'workouts/workout-routines',
+    ),
+    11 => array(
+      'name' => 'Arms Exercises',
+      'path' => 'workouts/arms-exercises',
+    ),
+    12 => array(
+      'name' => 'Back Exercises',
+      'path' => 'workouts/back-exercises',
+    ),
+    13 => array(
+      'name' => 'Chest Exercises',
+      'path' => 'workouts/chest-exercises',
+    ),
+    14 => array(
+      'name' => 'Legs Exercises',
+      'path' => 'workouts/legs-exercises',
+    ),
+    15 => array(
+      'name' => 'Shoulders Exercises',
+      'path' => 'workouts/shoulders-exercises',
+    ),
+    33 => array(
+      'name' => 'Workout Tips',
+      'path' => 'workouts/workout-tips',
+    ),
+    16 => array(
+      'name' => 'Athletes and Celebrities',
+      'path' => 'workouts/athletes-and-celebrities',
+    ),
+    1074 => array(
+      'name' => 'Workout 101',
+      'path' => 'workouts/workout-101',
+    ),
+  );
+  $tids = array_keys($terms_changes);
+
+
+  if (!isset($sandbox['progress'])) {
+    // Process taxonomy terms once
+    foreach ($terms_changes as $tid => $change) {
+      $term = taxonomy_term_load($tid);
+      $term->name = $change['name'];
+      // Saving term will automatically trigger pathauto and redirect modules
+      taxonomy_term_save($term);
+      // @TODO: Process custom paths. Currently not in scope of ticket
+
+      if (function_exists('drush_log')) {
+        $message = 'Taxonomy term "' . $term->name . '" updated';
+        drush_log($message, 'ok');
+      }
+    }
+
+    // Initializing Batch process
+    $max = db_query('SELECT COUNT(DISTINCT nid) FROM {taxonomy_index} WHERE tid IN (:tids)',
+      array(':tids' => $tids))->fetchField();
+
+    $sandbox['progress'] = 0;
+    $sandbox['limit'] = 20;
+    $sandbox['max'] = $max;
+  }
+
+  $args = array(':tids' => $tids);
+  $sql = 'SELECT DISTINCT nid FROM {taxonomy_index} WHERE tid IN (:tids)';
+  $result = db_query_range($sql, $sandbox['progress'], $sandbox['limit'], $args);
+
+
+  while ($nid = $result->fetchField()) {
+    if (!$nid) {
+      throw new DrupalUpdateException('Error while updating nodes');
+      break;
+    }
+
+    $node = node_load($nid);
+    $old_node_alias = drupal_get_path_alias('node/' . $node->nid);
+    // Cleaning up aliases for current node
+    while ($old_node_path = path_load(array('source' => 'node/' . $node->nid))) {
+      path_delete($old_node_path['pid']);
+    }
+
+    // Generating new alias for node, since pathauto currently having problems.
+    $new_node_alias = '';
+    $gc_items = field_get_items('node', $node, 'field_general_category');
+    if ($gc_items) {
+      $new_node_alias = drupal_get_path_alias('taxonomy/term/' . $gc_items[0]['tid']) . '/';
+    }
+
+    // Saving new path
+    if (!function_exists('pathauto_cleanstring')) {
+      module_load_include('inc', 'pathauto');
+    }
+    $new_node_alias .= pathauto_cleanstring($node->title);
+    $new_node_path = array(
+      'source' => 'node/' . $node->nid,
+      'alias' => $new_node_alias,
+    );
+    path_save($new_node_path);
+
+    // Creating redirect
+    $redirect = new stdClass();
+    redirect_object_prepare($redirect);
+    $redirect->source = $old_node_alias;
+    $redirect->redirect = $new_node_path['source'];
+    // Check if the redirect exists before saving.
+    $hash = redirect_hash($redirect);
+    if (!redirect_load_by_hash($hash)) {
+      redirect_save($redirect);
+    }
+
+    $sandbox['progress']++;
+  }
+
+  if ($sandbox['progress'] < $sandbox['max']) {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+  else {
+    $sandbox['#finished'] = 1;
+  }
+  if (function_exists('drush_log')) {
+    $message = 'Updating nodes, paths, redirects... : ';
+    $message .= round($sandbox['#finished'] * 100) . '% complete (';
+    $message .= $sandbox['progress'] . ' of ' . $sandbox['max'] . ')';
+    drush_log($message, 'ok');
+  }
+
+}
+
+/**
+ * Change footer menu Training item to Workouts
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7079() {
+  $link = menu_link_load(713);
+  $link['link_title'] = t('Workouts');
+  menu_link_save($link);
+  if (function_exists('drush_log')) {
+    $message = 'Updated footer-nav menu link';
+    drush_log($message, 'ok');
+  }
+  return 'footer-nav Training menu link changed';
+}
+
+
+/**
+ * Workaround for metatag conflict with empty_page
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7080() {
+  if (!module_enable(array('maf_emptypage_metatag_fix'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_emptypage_metatag_fix" module');
+  }
+  $message = '"maf_emptypage_metatag_fix" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables feature for channel blocks
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7081() {
+  if (!module_enable(array('maf_blocks'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_blocks" module');
+  }
+  $message = '"maf_blocks" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Update Workouts description
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7082() {
+  $term = taxonomy_term_load(6);
+  $term->description = "Whether you're into bodybuilding, power lifting, strength training or just getting started, we've compiled the most intense and impactful exercises and tips to help you reach your goals.";
+  taxonomy_term_save($term);
+
+  $message = 'Workouts desctiption added';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+
+  return $message;
+}
+
+/**
+ * Forced uninstall of brigento, background_process, progress and ultimate_cron modules
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7083() {
+  $message = '';
+  $tables = array(
+    '_bridgento_block_elements',
+    '_bridgento_cart',
+    '_bridgento_cart_items',
+    '_bridgento_categories',
+    '_bridgento_customers',
+    '_bridgento_invoice_products',
+    '_bridgento_invoices',
+    '_bridgento_product',
+    '_bridgento_product_attributes',
+    '_bridgento_product_image',
+    '_bridgento_related_products',
+    'background_process',
+    'progress',
+    'ultimate_cron',
+    'ultimate_cron_log',
+    'elysia_cron',
+  );
+  foreach ($tables as $table) {
+    db_drop_table($table);
+    $message .= 'Deleted table: "' . $table . '"' . PHP_EOL;
+  }
+
+  $modules = array(
+    'bridgento_header',
+    'bridgento',
+    'background_process',
+    'progress',
+    'ultimate_cron',
+    'elysia_cron',
+    'magento_fusion',
+  );
+
+  foreach ($modules as $module) {
+    db_query("DELETE FROM {variable} WHERE name LIKE :name", array(':name' => $module . '%'));
+    db_query("DELETE FROM {system} WHERE name LIKE :name", array(':name' => $module));
+    $message .= 'Deleted module: "' . $module . '"' . PHP_EOL;
+  }
+
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+
+/**
+ * Enables feature for Workout 101 articles page view
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7084() {
+  if (!module_enable(array('workout_101_articles'))) {
+    throw new DrupalUpdateException('It is impossible to enable "workout_101_articles" module');
+  }
+  $message = '"workout_101_articles" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_taxonomy_term_view feature to replace default taxonomy_term view
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7085() {
+  if (!module_enable(array('maf_taxonomy_term_view'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_taxonomy_term_view" module');
+  }
+  $status = variable_get('views_defaults', array());
+  $status['taxonomy_term'] = TRUE;
+  variable_set('views_defaults', $status);
+  $message = '"maf_taxonomy_term_view" feature is enabled\n';
+  $message .= 'taxonomy_term view was disabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables feature for Video contexts
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7086() {
+  if (!module_enable(array('maf_video_contexts'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_video_contexts" feature');
+  }
+  $message = '"maf_video_contexts" feature is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_taboola module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7087() {
+  if (!module_enable(array('maf_taboola'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_taboola" module');
+  }
+  $message = '"maf_taboola" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_node_contexts feature
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7088() {
+  if (!module_enable(array('maf_node_contexts'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_node_contexts" feature');
+  }
+  $message = '"maf_node_contexts" feature is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Restore all permissions to administrator role
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7089() {
+  $role = user_role_load_by_name('administrator');
+  user_role_grant_permissions($role->rid, array_keys(module_invoke_all('permission')));
+  $message = '"administrator" role permissions restored';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables mobile_detect module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7090() {
+  if (!module_enable(array('mobile_detect'))) {
+    throw new DrupalUpdateException('It is impossible to enable "mobile_detect" module');
+  }
+  $message = '"mobile_detect" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_taxonomy_pages_contexts feature
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7091() {
+  if (!module_enable(array('maf_taxonomy_pages_contexts'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_taxonomy_pages_contexts" feature');
+  }
+  $message = '"maf_taxonomy_pages_contexts" feature is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_xmlsitemap feature
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7092() {
+  if (!module_enable(array('maf_xmlsitemap'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_xmlsitemap" module');
+  }
+  $message = '"maf_xmlsitemap" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Delete unused xmlsitemap taxonomies and content types.
+ * Regenerate xmlsitemap sitemap.xml file.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7193() {
+  //Set some vars.
+  // Delete tags taxonomy and contest_entry nodes from sitemap.xml settings.
+  $settings = array(
+    'status' => 0,
+    'priority' => 0.5,
+  );
+
+  variable_set('xmlsitemap_settings_node_archive_contest_entry', $settings);
+  variable_set('xmlsitemap_settings_taxonomy_term_tags', $settings);
+
+  // Regenerate sitemap.xml.
+  module_load_include('generate.inc', 'xmlsitemap');
+  $form_state['values']['entities'] = array(
+    'menu_link',
+    'node',
+    'taxonomy_term',
+  );
+  $form_state['values']['save_custom'] = 1;
+  $batch = xmlsitemap_rebuild_batch($form_state['values']['entities'], $form_state['values']['save_custom']);
+  batch_set($batch);
+}
+
+/**
+ * Enables maf_newsstand_block feature
+ * @author Vicotr Pavlov
+ */
+function maf_updates_update_7194() {
+  if (!module_enable(array('maf_newsstand_block'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_newsstand_block" module');
+  }
+  $message = '"maf_newsstand_block" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Delete unused xmlsitemap taxonomies and content types.
+ * Regenerate xmlsitemap sitemap.xml file.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7195() {
+  maf_updates_update_7193();
+}
+
+/**
+ * Enables maf_related_articles_views_blocks feature
+ * @author Vicotr Pavlov
+ */
+function maf_updates_update_7196() {
+  if (!module_enable(array('maf_related_articles_views_blocks'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_related_articles_views_blocks" module');
+  }
+  $message = '"maf_related_articles_views_blocks" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_articles_and_blogs_top feature
+ * @author Vicotr Pavlov
+ */
+function maf_updates_update_7197() {
+  if (!module_enable(array('maf_articles_and_blogs_top'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_articles_and_blogs_top" module');
+  }
+  $message = '"maf_articles_and_blogs_top" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_right_rail_social feature
+ * @author Victor Pavlov
+ */
+function maf_updates_update_7198() {
+  if (!module_enable(array('maf_right_rail_social'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_right_rail_social" module');
+  }
+  $message = '"maf_right_rail_social" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Delelete nofollow attribute from robots on print pages.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7199() {
+  variable_set('print_robots_nofollow', FALSE);
+}
+
+/**
+ * Enables maf_photos_block_view feature
+ * @author Victor Pavlov
+ */
+function maf_updates_update_7200() {
+  if (!module_enable(array('maf_photos_block_view'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_photos_block_view" module');
+  }
+  $message = '"maf_photos_block_view" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables image_allow_insecure_derivatives module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7201() {
+  if (!module_enable(array('image_allow_insecure_derivatives'))) {
+    throw new DrupalUpdateException('It is impossible to enable "image_allow_insecure_derivatives" module');
+  }
+  $message = '"image_allow_insecure_derivatives" module is enabled';
+  variable_set('image_allow_insecure_derivatives', TRUE);
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables block caching
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7204() {
+  $message = 'block caching is enabled';
+  variable_set('block_cache', 1);
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Run onece again 7023 to eneable disabled feature.
+ *
+ * @author Victor Pavlov
+ */
+function maf_updates_update_7205() {
+  maf_updates_update_7023();
+}
+
+/**
+ * Enable metatag_context module.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7206() {
+  if (!module_enable(array('metatag_context'))) {
+    throw new DrupalUpdateException('It is impossible to enable "metatag_context" module');
+  }
+  $message = '"metatag_context" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enable maf_metatags feature.
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7207() {
+  if (!module_enable(array('maf_metatags'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_metatags" feature');
+  }
+  $message = '"maf_metatags" feature is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Disable chartbeat module.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7208() {
+  module_disable(array('chartbeat'));
+}
+
+/**
+ * Enable maf_custom_views module.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7209() {
+  if (!module_enable(array('maf_custom_views'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_custom_views" feature');
+  }
+  $message = '"maf_custom_views" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Change menu-site-switcher links.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7220() {
+  $links = array(744, 745, 746, 747);
+  foreach ($links as $link) {
+    $link = menu_link_load($link);
+    if ($link['mlid'] != 746) {
+      $link['hidden'] = 1;
+    }
+    else {
+      // Shop to Store.
+      $link['link_title'] = t('Store');
+    }
+    menu_link_save($link);
+    if (function_exists('drush_log')) {
+      $message = 'Updated menu-site-switcher menu link';
+      drush_log($message, 'ok');
+    }
+  }
+  return 'menu-site-switcher links changed';
+}
+
+/**
+ * Enables maf_header_contexts feature
+ * @author Victor Pavlov
+ */
+function maf_updates_update_7221() {
+  if (!module_enable(array('maf_header_contexts'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_header_contexts" module');
+  }
+  $message = '"maf_header_contexts" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_right_socials feature
+ * @author Victor Pavlov
+ */
+function maf_updates_update_7222() {
+  if (!module_enable(array('maf_right_socials'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_right_socials" module');
+  }
+  $message = '"maf_right_socials" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Disables maf_metatags feature
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7223() {
+  module_disable(array('maf_metatags'));
+  $message = '"maf_metatags" feature disabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_subchannel_rotator module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7224() {
+  if (!module_enable(array('maf_subchannel_rotator'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_subchannel_rotator" module');
+  }
+  $message = '"maf_subchannel_rotator" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Disables Database logging module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7225() {
+  module_disable(array('dblog'));
+  $message = '"dblog" module disabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enable maf_media_alter module and apply batch operations
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7226(&$sandbox) {
+  $sandbox['#finished'] = 0;
+
+  if (!isset($sandbox['progress'])) {
+    // Disable CDN module temporarly
+    variable_set('cdn_status', CDN_DISABLED);
+    module_enable(array('maf_media_alter'));
+    // Initializing Batch process
+    $max = db_query('SELECT COUNT(nid) FROM {node}')->fetchField();
+    $sandbox['progress'] = 0;
+    $sandbox['limit'] = 50;
+    $sandbox['max'] = $max;
+  }
+
+  $sql = 'SELECT nid FROM {node}';
+  $result = db_query_range($sql, $sandbox['progress'], $sandbox['limit']);
+
+  while ($nid = $result->fetchField()) {
+    if (!$nid) {
+      throw new DrupalUpdateException('Error while updating nodes');
+      break;
+    }
+    _maf_media_alter_autoupdate_media_field_batch($nid);
+    $sandbox['progress']++;
+  }
+
+  if ($sandbox['progress'] < $sandbox['max']) {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+  else {
+    $sandbox['#finished'] = 1;
+    // Enable CDN back
+    variable_set('cdn_status', CDN_ENABLED);
+  }
+  if (function_exists('drush_log')) {
+    $message = 'Updating image alt and title info : ';
+    $message .= round($sandbox['#finished'] * 100) . '% complete (';
+    $message .= $sandbox['progress'] . ' of ' . $sandbox['max'] . ')';
+    drush_log($message, 'ok');
+  }
+}
+
+/**
+ * Delete "Workouts 101" term from general category taxonomy
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7227() {
+  $nids = db_query('SELECT nid FROM {taxonomy_index} WHERE tid = :tid', array(':tid' => 1074))->fetchCol();
+  node_delete_multiple($nids);
+  taxonomy_term_delete(1074);
+  $message = '"Workouts 101" term deleted';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Fix footer logo image
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7228() {
+  $html = '<div><img src="/sites/muscleandfitness.com/themes/muscleandfitness/muscle-fitness-footer-logo-2014.png"></div>';
+  db_query('UPDATE {block_custom} SET body = :html WHERE bid = :bid', array(
+    ':html' => $html,
+    ':bid' => 5
+  ));
+  $message = 'Footer logo block updated';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_video_data module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7229() {
+  if (!module_enable(array('maf_video_data'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_video_data" module');
+  }
+  $message = '"maf_video_data" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables views_norepeat for taxonomy_term_view
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7230() {
+  variable_set('views_norepeat_taxonomy_term_view', array(
+    'write' => 'write',
+    'read' => 'read'
+  ));
+
+  $message = '"views_norepeat is enabled for taxonomy_term_view';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Remove Promo Block from footer enable maf_footer_contexts feature
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7231() {
+  if (!module_enable(array('maf_footer_contexts'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_footer_contexts" module');
+  }
+
+  $block = block_load('views', 'nodequeue_3-block');
+  _block_rehash();
+  db_update('block')->fields(array(
+    'weight' => 0,
+    'region' => '',
+    'status' => 0,
+  ))->condition('bid', $block->bid)->execute();
+
+  $message = '"Promo Block" is removed';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Update custom blocks set image attributes
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7232() {
+  $block_4 =
+    '<a href="https://www.jacked-in-a-box.com/signup.aspx?utm_source=muscleandfitness.com&utm_medium=300&utm_campaign=Jacked-In-A-Box" target="new">
+    <img src="/sites/muscleandfitness.com/files/media/MU-Jacked_C_300x250.jpg" alt="Be the first to try new supplements Jacked in a Box" width="300" height="250"></a>';
+
+  db_update('block_custom')->fields(array(
+    'body' => $block_4,
+  ))->condition('bid', 4)->execute();
+
+  $block_28 =
+    '<p><img alt="3 workouts" src="/sites/muscleandfitness.com/themes/muscleandfitness/images/workoutsblockbightrail.jpg" style="width: 300px; height: 500px;" width="300" height="500" usemap="#workoutsmap">
+    <map name="workoutsmap">
+    <area shape="rect" alt="army-fitness" title="army-fitness" coords="0,30,300,184" href="http://www.muscleandfitness.com/army-fitness" target="" />
+    <area shape="rect" alt="brianstann" title="brianstann" coords="0,185,300,340" href="http://www.muscleandfitness.com/brianstann" target="" />
+    <area shape="rect" alt="rise-above" title="rise-above" coords="0,341,300,499" href="http://www.muscleandfitness.com/rise-above" target="" />
+    </map>
+    </map>
+    </p>';
+  db_update('block_custom')->fields(array(
+    'body' => $block_28,
+  ))->condition('bid', 28)->execute();
+
+  $block_11 =
+    '<div><a href="https://www.jacked-in-a-box.com/signup.aspx?utm_source=muscleandfitness.com&utm_medium=650x120&utm_campaign=Jacked-In-A-Box">
+    <img src="/sites/muscleandfitness.com/files/media/MU-APR_Jacked_650x120_0.jpg" width="650" height="120" alt="jacked-in-a-box" title="Jacked-In-A-Box"></a></div>';
+  db_update('block_custom')->fields(array(
+    'body' => $block_11,
+  ))->condition('bid', 11)->execute();
+
+  $block_5 =
+    '<div><img src="/sites/muscleandfitness.com/themes/muscleandfitness/muscle-fitness-footer-logo-2014.png" width="240" height="111" alt="Muscle & fitness" title="Muscle & fitness"></div>';
+  db_update('block_custom')->fields(array(
+    'body' => $block_5,
+  ))->condition('bid', 5)->execute();
+
+  $term = taxonomy_term_load(22);
+  $term->field_custom_html[LANGUAGE_NONE][0]['value'] = '<img src="/sites/muscleandfitness.com/files/media/Category-Supplements-MuscleandFitness-Boost-Workout_3.jpg" usemap="#ProductsBoostWorkout" alt="Products Boost Workout" style="border-style:none" width="312" height="900"/>
+  <map id="ProductsBoostWorkout" name="ProductsBoostWorkout">
+  <area shape="rect" alt="" coords="16,14,305,177" href="http://click.muscleandfitness.com?9X2U8W" title="" target="new" />
+  <area shape="rect" alt="" coords="8,182,315,361" href="http://store.muscleandfitness.com/product/GERMAN_AMERICAN_TECHNOLOGIES_Nitraflex/101436.aspx" title="" target="new" />
+  <area shape="rect" alt="" coords="13,368,304,539" href="http://store.muscleandfitness.com/product/Muscle_Pharm_Hybrid_Series_Assault/103239.aspx" title="" target="new" />
+  <area shape="rect" alt="" coords="8,544,304,710" href="http://click.muscleandfitness.com?GML3SV" title="" target="new" />
+  <area shape="rect" alt="" coords="10,726,307,894" href="http://click.muscleandfitness.com?N22Q6A" title="" target="new" />
+  <area shape="default" nohref="nohref" alt="" />
+  </map>';
+  taxonomy_term_save($term);
+  unset($term);
+
+  $term = taxonomy_term_load(20);
+  $term->field_custom_html[LANGUAGE_NONE][0]['value'] = '<img src="/sites/muscleandfitness.com/files/media/Category-Supplements-MuscleandFitness-Build-Muscle_5.jpg"  border="0" usemap="#Map" alt="Products Build Muscle"  width="312" height="900" />
+  <map name="Map" id="Map">
+  <area shape="rect" coords="0,-3,311,181" href="http://store.muscleandfitness.com/product/BEAST_SPORTS_NUTRITION_Creature/102649.aspx" target="_blank"/>
+  <area shape="rect" coords="2,180,311,361" href="http://click.muscleandfitness.com?UQ5JTM" target="_blank"/>
+  <area shape="rect" coords="2,360,311,541" href="http://store.muscleandfitness.com/product/Arnold_By_Musclepharm_Iron_Whey/105286.aspx" target="_blank"/>
+  <area shape="rect" coords="2,538,313,719" href="http://click.muscleandfitness.com?7H46PG" target="_blank"/>
+  <area shape="rect" coords="1,719,320,904" href="http://click.muscleandfitness.com?Z3PSXJ" target="_blank"/>
+  </map>';
+  taxonomy_term_save($term);
+  unset($term);
+
+  $term = taxonomy_term_load(21);
+  $term->field_custom_html[LANGUAGE_NONE][0]['value'] = '<img src="/sites/muscleandfitness.com/files/media/Category-Supplements-MuscleandFitness-Lose-Fat_2.jpg" style="border-style:none" usemap="#ProductsLoseFat" alt="Products Lose Fat"  width="312" height="900" />
+  <map id="ProductsLoseFat" name="ProductsLoseFat">
+  <area alt="" coords="7,1,309,176" href="http://click.muscleandfitness.com?Q4W4BQ" shape="rect" target="new" title=""  target="_blank">
+  <area alt="" coords="5,184,309,356" href="http://click.muscleandfitness.com?WMRUGU" shape="rect" target="new" title=""  target="_blank">
+  <area alt="" coords="8,363,308,537" href="http://click.muscleandfitness.com?ZMLPT2" shape="rect" target="new" title=""  target="_blank">
+  <area alt="" coords="6,542,313,717" href="http://click.muscleandfitness.com?QUDBBY" shape="rect" target="new" title=""  target="_blank">
+  <area alt="" coords="4,722,304,895" href="http://click.muscleandfitness.com?6Q6U2R" shape="rect" target="new" title=""  target="_blank">
+  <area alt="" nohref="nohref" shape="default"></map>';
+  taxonomy_term_save($term);
+  unset($term);
+
+  $term = taxonomy_term_load(23);
+  $term->field_custom_html[LANGUAGE_NONE][0]['value'] = '<img src="/sites/muscleandfitness.com/files/media/Category-Supplements-MuscleandFitness-Recover_3.jpg" style="border-style:none" usemap="#ProductsRecover" alt="Products Recover" width="312" height="900" >
+  <map id="ProductsRecover" name="ProductsRecover">
+  <area alt="" coords="8,6,311,177" href="http://click.muscleandfitness.com?RNB698" shape="rect" target="new" title="">
+  <area alt="" coords="7,180,309,362" href="http://click.muscleandfitness.com?S76LLR" shape="rect" target="new" title="">
+  <area alt="" coords="10,367,307,540" href="http://click.muscleandfitness.com?UBUW7S" shape="rect" target="new" title="">
+  <area alt="" coords="7,542,311,720" href="http://click.muscleandfitness.com?RADXHZ" shape="rect" target="new" title="">
+  <area alt="" coords="7,723,305,897" href="http://click.muscleandfitness.com?B5DT59" shape="rect" target="new" title="">
+  <area alt="" nohref="nohref" shape="default">
+  </map>';
+  taxonomy_term_save($term);
+  unset($term);
+
+  $term = taxonomy_term_load(1025);
+  $term->field_custom_html[LANGUAGE_NONE][0]['value'] = '
+  <p>
+  <img align="center" alt="Xtreme High Intensity Training" src="/sites/muscleandfitness.com/files/media/Sponsorships/MHP/MnF-VideoHeader_200-650_FINAL.jpg" style="border-style:none; margin:0; padding:0;"  width="650" height="200" />
+  </p>';
+  taxonomy_term_save($term);
+  unset($term);
+
+  $term = taxonomy_term_load(8);
+  $term->field_custom_html[LANGUAGE_NONE][0]['value'] = '<img src="/sites/muscleandfitness.com/files/media/Category-Supplements-MuscleandFitness-Supplements_7.jpg" alt="Muscle and Fitness Supplements" usemap="#Category-Supplements-MuscleandFitness-Supplements" style="border-style:none"  width="312" height="1620" />
+  <map id="Category-Supplements-MuscleandFitness-Supplements" name="Category-Supplements-MuscleandFitness-Supplements">
+  <area shape="rect" alt="" coords="5,3,311,180" href="http://store.muscleandfitness.com/product/Arnold_By_Musclepharm_Iron_Pump/105288.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="0,182,310,362" href="http://store.muscleandfitness.com/product/BPI_PumpHD/97237.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="1,365,304,539" href="http://store.muscleandfitness.com/product/BSN_Amino_X/33069.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="0,541,312,721" href="http://store.muscleandfitness.com/product/GERMAN_AMERICAN_TECHNOLOGIES_Nitraflex/101436.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="0,721,313,897" href="http://store.muscleandfitness.com/product/MHP_IsoFast/97230.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="0,896,309,1079" href="http://store.muscleandfitness.com/product/MuscleTech_Performance_Series_CellTech/89765.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="3,1084,312,1260" href="http://store.muscleandfitness.com/product/Concret_Concentrated_Creatine/79536.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="1,1259,309,1441" href="http://store.muscleandfitness.com/product/Universal_Nutrition_Atomic_7/54368.aspx" title="" target="_blank"/>
+  <area shape="rect" alt="" coords="3,1442,311,1612" href="http://store.muscleandfitness.com/product/USP_Labs_Jack3d_Micro/89859.aspx" title="" target="_blank"/>
+  <area shape="default" nohref="nohref" alt="" />
+  </map>';
+  taxonomy_term_save($term);
+  unset($term);
+
+  $message = 'Custom blocks';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_exercise feature
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7233() {
+  if (!module_enable(array('maf_exercise'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_exercise" module');
+  }
+  $message = '"maf_exercise" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Setup "user_mail_register_rhc_subject" & "user_mail_register_rhc_body" variables
+ * @author Yurii Nesterenko
+ */
+function maf_updates_update_7234() {
+  variable_set('user_mail_register_rhc_subject', 'Account details for [user:name] at [site:name]');
+  variable_set('user_mail_register_rhc_body', 'Hi [user:name],
+
+Welcome to the 2014 Rock Hard Challenge. You may now log in by clicking this link or copy-and-pasting it into your browser:
+
+[user:one-time-login-url]
+
+This link can only be used once to log in and will lead you to a page where you can set your password.
+
+After setting your password, you will be able to log in at [site:login-url] in the future with these credentials:
+
+username: [user:name]
+password: Your password
+
+Good luck!
+The Muscle & Fitness Team');
+
+  $message = '"user_mail_register_rhc_subject" & "user_mail_register_rhc_body" variables are set';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_studio module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7235() {
+  if (!module_enable(array('maf_studio'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_studio" module');
+  }
+  $message = '"maf_studio" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_trainer_challenge module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7236() {
+  if (!module_enable(array('maf_trainer_challenge'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_trainer_challenge" module');
+  }
+  $message = '"maf_trainer_challenge" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+
+/**
+ * Updates exercise content type nodes. Sets additional data for schema.org video markup
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7237(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    $query = db_select('field_data_field_aol_video_id', 'favi');
+    $query->fields('favi', array('entity_id', 'field_aol_video_id_value'));
+    $query->condition('deleted', 0);
+    $query->condition('n.type', 'exercise');
+    $query->join('node', 'n', 'n.nid = favi.entity_id');
+    $query->isNotNull('field_aol_video_id_value');
+
+    $sandbox['items'] = $query->execute()->fetchAllAssoc('entity_id');
+    $sandbox['progress'] = count($sandbox['items']) - 1;
+    $sandbox['current'] = 0;
+    $sandbox['items_per_pass'] = 20;
+  }
+
+  $items = array_slice($sandbox['items'], $sandbox['current'], $sandbox['items_per_pass']);
+  $values = maf_video_data_get_videos_data($items);
+  foreach ($values as $key => $value) {
+    $temp[$key] = $value;
+    maf_video_data_set_video_data($temp, NULL);
+    $temp = array();
+    $sandbox['current']++;
+  }
+
+  $sandbox['#finished'] = ($sandbox['current'] / $sandbox['progress']);
+  if ($sandbox['#finished'] === 1) {
+    $message = 'Schema org video data is updated for exercise nodes';
+    if (function_exists('drush_log')) {
+      drush_log($message, 'ok');
+    }
+    return $message;
+  }
+
+  $message = t('Updating video data: @current of @progress', array(
+    '@current' => $sandbox['current'],
+    '@progress' => $sandbox['progress']
+  ));
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+
+/**
+ * Update taxonomy term paths
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7238(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    // Setting pathauto patterns for taxonomy vocabularies
+    variable_set('pathauto_taxonomy_term_body_part_pattern', 'workouts/exercise-videos/[term:name]');
+    variable_set('pathauto_taxonomy_term_equipment_pattern', 'workouts/exercise-videos/[term:name]');
+    variable_set('pathauto_taxonomy_term_exercise_type_pattern', 'workouts/exercise-videos/[term:name]');
+    variable_set('pathauto_taxonomy_term_skill_level_pattern', 'workouts/exercise-videos/[term:name]');
+
+    // Getting tids
+    $vocabularies = array(
+      'skill_level',
+      'exercise_type',
+      'equipment',
+      'body_part',
+    );
+    $query = db_select('taxonomy_term_data', 'td');
+    $query->fields('td', array('tid'));
+    $query->leftJoin('taxonomy_vocabulary', 'tv', 'tv.vid = td.vid');
+    $query->condition('tv.machine_name', $vocabularies, 'IN');
+
+    $sandbox['tids'] = $query->execute()->fetchCol();
+    $sandbox['progress'] = count($sandbox['tids']) - 1;
+    $sandbox['current'] = 0;
+    $sandbox['items_per_pass'] = 10;
+  }
+
+  $tids = array_slice($sandbox['tids'], $sandbox['current'], $sandbox['items_per_pass']);
+  foreach ($tids as $tid) {
+    $term = taxonomy_term_load($tid);
+    $term->path['pathauto'] = 1;
+    taxonomy_term_save($term);
+    $sandbox['current']++;
+  }
+  $sandbox['#finished'] = ($sandbox['current'] / $sandbox['progress']);
+  if ($sandbox['#finished'] === 1) {
+    $message = 'skill_level, exercise_type, equipment, body_part vocabularies terms path updated';
+    if (function_exists('drush_log')) {
+      drush_log($message, 'ok');
+    }
+    return $message;
+  }
+  $message = t('Done @current of @progress', array(
+    '@current' => $sandbox['current'],
+    '@progress' => $sandbox['progress']
+  ));
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Creates aol player settings for exercise content type
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7239() {
+  $settings = array(
+    'name' => 'Exercise videos',
+    'description' => 'Video player used on exercise nodes',
+    'player' => 'exercise_videos',
+    'width' => '547',
+    'height' => '396',
+    'settings' => 'a:2:{s:12:"hasCompanion";s:5:"false";s:11:"innerMargin";s:1:"0";}',
+  );
+
+  if (!drupal_write_record('aol_player', $settings)) {
+    throw new DrupalUpdateException('Error creating aol player settings for Exercise content type');
+  }
+  $message = 'aol player settings for Exercise content type successfully created';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Reset Studio related vocabularies to alphabetical order and set weight to skill level terms
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7240() {
+  $vocabs = array(
+    'skill_level',
+    'body_part',
+    'exercise_type',
+    'equipment',
+  );
+  db_query('
+  UPDATE {taxonomy_term_data} td
+  LEFT JOIN {taxonomy_vocabulary} tv ON td.vid = tv.vid
+  SET td.weight = 0
+  WHERE tv.machine_name IN (:vocabs)'
+    , array(':vocabs' => $vocabs));
+
+  db_query('
+  UPDATE {taxonomy_term_data} td
+  LEFT JOIN {taxonomy_vocabulary} tv ON td.vid = tv.vid
+   SET td.weight = 1
+  WHERE td.name = :name AND tv.machine_name = :vocab'
+    , array(':name' => 'Intermediate', ':vocab' => 'skill_level'));
+
+  db_query('
+  UPDATE {taxonomy_term_data} td
+  LEFT JOIN {taxonomy_vocabulary} tv ON td.vid = tv.vid
+   SET td.weight = 2
+  WHERE td.name = :name AND tv.machine_name = :vocab'
+    , array(':name' => 'Advanced', ':vocab' => 'skill_level'));
+
+  $message = 'Sorted Studio related vocabularies to alphabetical order, skill level terms weight is set';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Publishing all exercise nodes triggers taxonomy index update
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7241(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+
+    $query = db_select('node', 'n');
+    $query->fields('n', array('nid'));
+    $query->condition('n.type', 'exercise');
+
+    $sandbox['nids'] = $query->execute()->fetchCol();
+    $sandbox['progress'] = count($sandbox['nids']) - 1;
+    $sandbox['current'] = 0;
+    $sandbox['items_per_pass'] = 10;
+  }
+
+  $nids = array_slice($sandbox['nids'], $sandbox['current'], $sandbox['items_per_pass']);
+  foreach ($nids as $nid) {
+    $node = node_load($nid);
+    $node->status = 1;
+    node_save($node);
+    $sandbox['current']++;
+  }
+  $sandbox['#finished'] = ($sandbox['current'] / $sandbox['progress']);
+  if ($sandbox['#finished'] === 1) {
+    $message = 'Taxonomy index updated for all exercise type nodes';
+    if (function_exists('drush_log')) {
+      drush_log($message, 'ok');
+    }
+    return $message;
+  }
+  $message = t('Updating taxonomy index. @current of @progress', array(
+    '@current' => $sandbox['current'],
+    '@progress' => $sandbox['progress']
+  ));
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables back_to_top module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7242() {
+  if (!module_enable(array('back_to_top'))) {
+    throw new DrupalUpdateException('It is impossible to enable "back_to_top" module');
+  }
+  $message = '"back_to_top" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_studio_sitemap module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7243() {
+  if (!module_enable(array('maf_studio_sitemap'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_studio_sitemap" module');
+  }
+  _maf_studio_sitemap_cron();
+  $message = '"maf_studio_sitemap" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * reconfigure MaF MSN Feeds
+ * @author Vasyl Zhuk
+ */
+
+function maf_updates_update_7244() {
+  $galleries = array(
+    'articles' => 1,
+    'teaser_image_field' => 'field_gallery_images:field_image',
+    'body_field' => 'field_gallery_images:field_description',
+    'body_titles_field' => 'field_gallery_images:field_promo_title',
+    'author_field' => 'field_byline',
+    'author_fallback_field' => 'select',
+    'slideshows' => 1,
+    'images_field' => 'field_gallery_images:field_image',
+    'images_description_field' => 'field_gallery_images:field_description',
+    'videos' => 0,
+    'aol_video_field' => 'select',
+    'caption_field' => 'select',
+  );
+  variable_set('ami_services_msn_feeds__gallery', $galleries);
+  return 'Successfully updated configuration';
+}
+
+/**
+ * Disable genesis on Studio alphabetical page
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7245() {
+  $genesis = variable_get('maf_genesis_visibility');
+  $genesis .= PHP_EOL . 'workouts/exercise-videos/a-z';
+  variable_set('maf_genesis_visibility', $genesis);
+
+  $message = 'Successfully updated genesis visibility settings configuration';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Move RHC DART override to DB
+ * @author Anton Trokhymenko.
+ */
+function maf_updates_update_7246() {
+  $dart_settings = array(
+    'path_types' => array(
+      'paths' => 'contest/rock-hard-challenge-2013
+galleries/rock-hard-supplement-plan
+node/6744/*
+contest-info/6744/*
+contest/rock-hard-challenge-2014
+node/8234/*
+contest-info/8234/*',
+      'load_node' => '',
+      'load_term' => '',
+    ),
+    'overrides' => array(
+      'tag_settings' => array(
+        'site' => 'rhc2014',
+        'zone' => 'index',
+      ),
+      'key_vals' => array(
+        0 => array(
+          'key' => 'kw',
+          'val' => 'rhc2014',
+          'eval' => 0,
+        ),
+      ),
+    ),
+    'dart_tags' => array(
+      'tags' => array(
+        'bottom_banner' => 'bottom_banner',
+        'content' => 'content',
+        'right_rail_first' => 'right_rail_first',
+        'right_rail_second' => 'right_rail_second',
+        'skin' => 'skin',
+        'top_banner' => 'top_banner',
+        'right_subscribe_300x195' => 0,
+      ),
+    ),
+  );
+
+  db_delete('dart_tag_override')
+    ->condition('name', 'RHC')
+    ->execute();
+  db_insert('dart_tag_override')
+    ->fields(array('name', 'description', 'plugin_type', 'dart_settings'))
+    ->values(array(
+      'RHC',
+      'Rock hard challenge 2014 dart settings',
+      'path_override',
+      serialize($dart_settings)
+    ))
+    ->execute();
+}
+
+/**
+ * Enables maf_geo_blocker module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7247() {
+  if (!module_enable(array('maf_geo_blocker'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_geo_blocker" module');
+  }
+  $message = '"maf_geo_blocker" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Sets cron threshold to 3 hours
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7248() {
+  variable_set('cron_safe_threshold', '10800');
+  $message = 'Cron threshold is set to 3 hours';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_feeds module
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7249() {
+  if (!module_enable(array('maf_feeds'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_feeds" module');
+  }
+  $message = '"maf_feeds" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Removes tags/carb-backloading from xmlsitemap
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7250() {
+
+  xmlsitemap_link_delete('taxonomy_term', 450);
+// Regenerate sitemap.xml.
+  module_load_include('generate.inc', 'xmlsitemap');
+  $form_state['values']['entities'] = array(
+    'menu_link',
+    'node',
+    'taxonomy_term',
+  );
+  $form_state['values']['save_custom'] = 1;
+  $batch = xmlsitemap_rebuild_batch($form_state['values']['entities'], $form_state['values']['save_custom']);
+  batch_set($batch);
+
+  $message = '"tags/carb-backloading" removed from xmlsitemap';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Moving DART overrides to database # MUSCLE-524
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7251() {
+
+  // Deleting all DART overrides from DB
+  db_delete('dart_tag_override')->execute();
+  module_load_include('inc', 'maf_updates', 'sources/maf_updates.dart_overrides');
+  module_load_include('inc', 'ctools', 'includes/export');
+  $export = maf_updates_dart_overrides_default_tag_override();
+  foreach ($export as $object) {
+    ctools_export_crud_save('dart_tag_override', $object);
+  }
+}
+
+/**
+ * Enables maf_tags_redirect module #MUSCLE-345
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7252() {
+  if (!module_enable(array('maf_tags_redirect'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_tags_redirect" module');
+  }
+  $message = '"maf_tags_redirect" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables maf_authors feature #MUSCLE-345
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7253() {
+  if (!module_enable(array('maf_authors'))) {
+    throw new DrupalUpdateException('It is impossible to enable "maf_authors" module');
+  }
+  $message = '"maf_authors" module is enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Enables ami_mostpopular, mostpopular_ga_ext, ultimate_cron modules #MUSCLE-510
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7254() {
+  module_enable(array('ami_mostpopular'));
+  module_enable(array('mostpopular_ga_ext'));
+  module_enable(array('ultimate_cron'));
+  $message = '"ami_mostpopular", "mostpopular_ga_ext", "ultimate_cron" modules enabled';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Replace maf_taboola module with maf_ads #MUSCLE-538
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7255() {
+  module_disable('maf_taboola');
+  module_enable('maf_ads');
+
+  $enabled = module_enable(array('maf_ads'));
+  $return[] = array(
+    'success' => $enabled,
+    'query' => 'Enabling maf_ads',
+  );
+  return $return;
+}
+
+/**
+ * Delete unused drupal 6 content tables
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7256() {
+  $drupal6_content = array(
+    'content_field_article_links',
+    'content_field_blurb',
+    'content_field_bonus_content',
+    'content_field_brightcove_id',
+    'content_field_brightcove_list_id',
+    'content_field_byline',
+    'content_field_hide_left_sidebar',
+    'content_field_images',
+    'content_field_links',
+    'content_field_photo_credit',
+    'content_field_related_articles',
+    'content_field_rotator_image',
+    'content_field_sponsor_image',
+    'content_field_sponsor_name',
+    'content_field_sponsor_url',
+    'content_field_subtitle',
+    'content_field_teaser_image',
+    'content_field_videos',
+    'content_node_field',
+    'content_node_field_instance',
+    'content_type_article',
+    'content_type_blog',
+    'content_type_contest',
+    'content_type_contest_entry',
+    'content_type_extra',
+    'content_type_interstitial_ad',
+    'content_type_interview',
+    'content_type_newsstand',
+    'content_type_page',
+    'content_type_photo_gallery',
+    'content_type_poll',
+    'content_type_video',
+    'content_type_webform',
+  );
+  foreach ($drupal6_content as $key) {
+    if (db_table_exists($key)) {
+      db_drop_table($key);
+    }
+  }
+}
+
+/**
+ * Delete unused drupal tables
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7257() {
+  $untracked_tables = array(
+    'access',
+    'accesslog',
+    'actions_aid',
+    'ami_contest_votes',
+    'ami_node_sponsors',
+    'ami_node_visibility',
+    'ami_taxonomy_dart',
+    'ami_taxonomy_menu',
+    'ami_taxonomy_nodequeue',
+    'ami_taxonomy_nodequeue_blocks',
+    'ami_taxonomy_rendering',
+    'ami_taxonomy_sponsors',
+    'ami_taxonomy_titles',
+    'ami_taxonomy_titles',
+    'ami_taxonomy_titles',
+    'blocks',
+    'blocks_roles',
+    'boxes',
+    'cache_content',
+    'cache_entity_comment',
+    'cache_entity_file',
+    'cache_entity_node',
+    'cache_entity_taxonomy_term',
+    'cache_entity_taxonomy_vocabulary',
+    'cache_entity_user',
+    'comments',
+    'custom_breadcrumb',
+    'custom_breadcrumbs_taxonomy_term',
+    'custom_breadcrumbs_taxonomy_vocabulary',
+    'dart_taxonomy_map',
+    'date_format_types',
+    'field_data_field_store_products',
+    'field_deleted_data_145',
+    'field_deleted_data_2',
+    'field_deleted_data_3',
+    'field_deleted_data_4',
+    'field_deleted_revision_145',
+    'field_deleted_revision_2',
+    'field_deleted_revision_3',
+    'field_deleted_revision_4',
+    'field_revision_field_store_products',
+    'files',
+    'filter_formats',
+    'filters',
+    'flag_content',
+    'flag_counts',
+    'flag_types',
+    'flags',
+    'imagecache_action',
+    'imagecache_preset',
+    'imce_files',
+    'node_comment_statistics',
+    'node_counter',
+    'node_revisions',
+    'nodewords',
+    'page_manager_handlers',
+    'page_manager_pages',
+    'page_manager_weights',
+    'page_title',
+    'permission',
+    'poll_choices',
+    'poll_votes',
+    'session_api',
+    'skin',
+    'taxonomy_manager_merge',
+    'term_data',
+    'term_hierarchy',
+    'term_node',
+    'term_relation',
+    'term_synonym',
+    'views_object_cache',
+    'vocabulary',
+    'vocabulary_node_types',
+    'watchdog',
+    'webfm_attach',
+    'webfm_file',
+  );
+  foreach ($untracked_tables as $key) {
+    if (db_table_exists($key)) {
+      db_drop_table($key);
+    }
+  }
+}
+
+/**
+ * Disable default drupal search.
+ *
+ * @author Bogdan Tur.
+ */
+function maf_updates_update_7258() {
+  // Disable default drupal search.
+  variable_set('search_cron_limit', 0);
+  // Delete unused search data.
+  db_delete('search_dataset')->execute();
+  db_delete('search_index')->execute();
+  db_delete('search_node_links')->execute();
+  db_delete('search_total')->execute();
+}
+
+/**
+ * Change default filter format for textarea fields.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7259() {
+  // Array of format weights.
+  $data = array(
+    'filtered_html' => -6,
+    'full_html' => -5,
+    'plain_text' => -4,
+    'raw_code' => -3,
+    'ds_code' => -2,
+    'msn_feeds' => -1,
+  );
+  foreach ($data as $key => $value) {
+    // Set appropriate weight.
+    db_update('filter_format')
+      ->fields(array('weight' => $value))
+      ->condition('format', $key)
+      ->execute();
+  }
+}
+
+/**
+ * Disable genesis on node add, edit pages.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7261() {
+  $genesis = variable_get('maf_genesis_visibility');
+  $genesis .= PHP_EOL . 'node/*/*';
+  $genesis .= PHP_EOL . 'node/add/*';
+  variable_set('maf_genesis_visibility', $genesis);
+
+  $message = 'Successfully updated genesis visibility settings configuration';
+  if (function_exists('drush_log')) {
+    drush_log($message, 'ok');
+  }
+  return $message;
+}
+
+/**
+ * Replace maf_taboola module with maf_ads #MUSCLE-538
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7262() {
+  module_disable('maf_taboola');
+
+  $enabled = module_enable(array('maf_ads'));
+  $return[] = array(
+    'success' => $enabled,
+    'query' => 'Enabling maf_ads',
+  );
+  return $return;
+}
+
+/**
+ * Enabling maf_favicon module #MUSCLE-549
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7263() {
+  $enabled = module_enable(array('maf_favicon'));
+  $return[] = array(
+    'success' => $enabled,
+    'query' => 'Enabling maf_favicon',
+  );
+  return $return;
+}
+
+/**
+ * Enabling fast_404 module #MUSCLE-548
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7264() {
+  $enabled = module_enable(array('fast_404'));
+  $return[] = array(
+    'success' => $enabled,
+    'query' => 'Enabling fast_404',
+  );
+  return $return;
+}
+
+/**
+ * Enable expires module and adding right settings.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7265() {
+  module_enable(array('expire', 'acquia_purge'));
+  $expire_node_custom_pages = 'workouts
+workouts/exercise-videos
+workouts/abs-exercises
+workouts/arms-exercises
+workouts/back-exercises
+workouts/chest-exercises
+workouts/legs-exercises
+workouts/shoulders-exercises
+workouts/workout-tips
+workouts/workout-routines
+workouts/athletes-and-celebrities
+nutrition
+nutrition/recipes
+nutrition/lose-fat
+nutrition/gain-mass
+supplements
+supplements/build-muscle
+supplements/lose-fat
+supplements/boost-workout
+supplements/recover
+news-and-features
+news-and-features/galleries
+news-and-features/sweeps-and-giveaways
+newsstand/*
+news-and-features/athletes-and-celebrities
+news-and-features/features
+blogs
+news-and-features/reviews
+videos
+videos/mf-raw
+videos/nutrition
+videos/nutrition/the-shakedown
+videos/training
+videos/performance-training
+videos/athletes-and-celebrities
+videos/mf-live
+videos/mf-lab-rat
+videos/women
+videos/max-mind-set
+videos/one-more-rep';
+  // Set nodes custom page to expire on node actions.
+  $node_actions = array(1 => '1', 2 => '2', 3 => '3',);
+  variable_set('expire_node_actions', $node_actions);
+  variable_set('expire_node_front_page', TRUE);
+  variable_set('expire_node_term_pages', TRUE);
+  variable_set('expire_node_reference_pages', TRUE);
+  variable_set('expire_node_reference_field_collection_pages', TRUE);
+  variable_set('expire_node_custom', TRUE);
+  variable_set('expire_node_custom_pages', $expire_node_custom_pages);
+  // Set files custom page to expire on node actions.
+  $file_actions = array(1 => '1', 2 => '2',);
+  variable_set('expire_file_actions', $file_actions);
+  variable_set('expire_file_front_page', TRUE);
+  variable_set('expire_file_file', TRUE);
+  variable_set('expire_file_custom', TRUE);
+  variable_set('expire_file_custom_pages', $expire_node_custom_pages);
+}
+
+/**
+ * Disable and uninstall 'brightcove', 'brightcove_media', 'brightcove_field', 'media_internet' modules #MUSCLE-562
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7266() {
+  module_disable(array(
+    'brightcove',
+    'brightcove_media',
+    'brightcove_field',
+    'media_internet'
+  ));
+  drupal_uninstall_modules(array(
+    'brightcove',
+    'brightcove_media',
+    'brightcove_field',
+    'media_internet'
+  ));
+
+  $return[] = array(
+    'success' => TRUE,
+    'query' => 'Disabled and uninstalled brightcove, brightcove_media, brightcove_field, media_internet modules',
+  );
+  return $return;
+}
+
+/**
+ * Enable "ami_utility" module for MAF #MUSCLE-576
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7267() {
+  $enabled = module_enable(array('ami_utility'));
+  $return[] = array(
+    'success' => $enabled,
+    'query' => 'Enabling ami_utility',
+  );
+  return $return;
+}
+
+/**
+ * Disable broken views on nutrient CT pages
+ * @author Martin Malovanets
+ */
+function maf_updates_update_7268() {
+  $view = views_get_view('related_articles_reverse', TRUE);
+  $view->display['block_1']->display_options['enabled'] = FALSE;
+  views_save_view($view);
+  $view = views_get_view('right_coumn', TRUE);
+  $view->display['block']->display_options['enabled'] = FALSE;
+  views_save_view($view);
+}
+
+/**
+ * Disable and uninstall 'migration', 'schema' modules.
+ * Fix 14223 uid user notices.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7269() {
+  module_enable(array('views_bulk_operations'));
+  module_disable(array('migration', 'schema'));
+  drupal_uninstall_modules(array('migration', 'schema'));
+
+  // Fix user 14223 notices.
+  db_update('node')
+    ->fields(array('uid' => 1))
+    ->condition('uid', 14223)
+    ->execute();
+}
+
+/**
+ * Delete corrupted pullquote.
+ * revert wonders CT feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7275() {
+  field_delete_field('field_pullquote');
+  $feature = features_get_features('wonders_content_types');
+  if (!empty($feature->info['features'])) {
+    $components = array_keys($feature->info['features']);
+    features_revert(array('wonders_content_types' => $components));
+  }
+}
+
+/**
+ * MUSCLE-596 Change URL to say Magazine instead of Newsstand
+ * MUSCLE-597 Create redirects to avoid broken URLs
+ * due to change of Newsstand to Magazine in the URLs
+ *
+ * @author Stepan Stepanov
+ */
+function maf_updates_update_7276() {
+  variable_set('pathauto_node_newsstand_pattern', '/magazine/[node:field-issue-date:month_year]');
+
+  module_load_include('inc', 'pathauto');
+  module_load_include('inc', 'pathauto.pathauto');
+
+  // Deleting the existing 'newsstand' aliases
+  db_delete('url_alias')
+    ->condition('alias', '%newsstand/%', 'LIKE')
+    ->execute();
+
+  // Regenerating the node aliases.
+  $nids = db_query("SELECT nid FROM {node} WHERE type = 'newsstand'")
+    ->fetchCol();
+
+  pathauto_node_update_alias_multiple($nids, 'bulkupdate');
+
+  // Creating redirects
+  $result = db_select('url_alias', 'ua')
+    ->fields('ua')
+    ->condition('ua.alias', '%magazine/%', 'LIKE')
+    ->execute();
+
+  while ($record = $result->fetchAssoc()) {
+    $redirect = new stdClass();
+
+    $source = $record['alias'];
+    $source = str_replace('magazine', 'newsstand', $source);
+
+    redirect_object_prepare(
+      $redirect, array(
+        'source' => $source,
+        'source_options' => array(),
+        'redirect' => $record['source'],
+        'redirect_options' => array(),
+        'language' => LANGUAGE_NONE,
+      )
+    );
+
+    // Saving if not already exists
+    $hash = redirect_hash($redirect);
+    if (!redirect_load_by_hash($hash)) {
+      redirect_save($redirect);
+    }
+
+    unset($redirect);
+  }
+}
+
+/**
+ * MUSCLE-595 Change breadcrumbs to display "Magazine" instead of "Newsstand"
+ * (for content types "Magazine")
+ *
+ * @author Stepan Stepanov
+ */
+function maf_updates_update_7277() {
+
+  function newsstand_fix($data) {
+
+    if (is_array($data)) {
+      foreach ($data as $key => $value) {
+        $data[$key] = newsstand_fix($value);
+      }
+
+    }
+    else {
+      $data = str_replace('Newsstand', 'Magazine', $data);
+    }
+
+    return $data;
+  }
+
+  // Getting newsstand-specific hansel rules
+  $result = db_select('hansel_rule', 'hr')
+    ->fields('hr')
+    ->where("LOWER(name) LIKE '%newsstand%'")
+    ->execute();
+
+  while ($record = $result->fetchAssoc()) {
+
+    $name = $record['name'];
+    $crumb_action_arguments = unserialize($record['crumb_action_arguments']);
+
+    $name = newsstand_fix($name);
+    $crumb_action_arguments = newsstand_fix($crumb_action_arguments);
+
+    $record['name'] = $name;
+    $record['crumb_action_arguments'] = serialize($crumb_action_arguments);
+
+    // Debug:
+    // print_r( $record['name'] );
+    // echo PHP_EOL;
+    // print_r( $record['crumb_action_arguments'] );
+    // echo '-----------------------------------------'.PHP_EOL;
+
+    $num_updated = db_update('hansel_rule')
+      ->fields(array(
+        'name' => $record['name'],
+        'crumb_action_arguments' => $record['crumb_action_arguments'],
+      ))
+      ->condition('rid', $record['rid'], '=')
+      ->execute();
+
+    // Debug:
+    // echo 'Updated: '.$num_updated.PHP_EOL;
+  }
+}
+
+/**
+ * Deletes field_video and re-runs maf_updates_update_7266 #MUSCLE-562
+ *
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7278() {
+  field_delete_field('field_video');
+  maf_updates_update_7266();
+}
+
+/**
+ * Fix media images embedded into body field.
+ *
+ * @author Bogdan Tur.
+ */
+function maf_updates_update_7280() {
+  $prefix = '[[{"fid":';
+  // Get all nodes with images.
+  $nids = db_query(
+    'SELECT "entity_id" FROM {field_data_body} WHERE body_value LIKE :pattern',
+    array(':pattern' => '%' . db_like($prefix) . '%')
+  )->fetchCol();
+
+  if (!empty($nids) && is_array($nids)) {
+    $count = 0;
+    if (function_exists('drush_log')) {
+      drush_log('found nodes ' . count($nids), 'success');
+    }
+
+    // Get old files fromatting from stored file.
+    $data = file_get_contents(drupal_get_path('module', 'maf_updates') . '/sources/nodes-files.txt');
+    $data = json_decode($data);
+
+    foreach ($nids as $nid) {
+      $node = node_load($nid);
+      if (!empty($node) && is_object($node)) {
+        $body = field_get_items('node', $node, 'body');
+        if (!empty($body[0]['value'])) {
+          $body = $body[0]['value'];
+          $matches = array();
+          $regex = "/\[\[(.*)\]\]/U";
+          preg_match_all($regex, $body, $matches);
+          if (!empty($matches[1]) && is_array($matches[1])) {
+            foreach ($matches[1] as $match) {
+              $file = json_decode($match);
+              if (!empty($data->{$nid}->{$file->fid})) {
+                $init_file = json_decode($data->{$nid}->{$file->fid});
+              }
+              if (empty($init_file->attributes)) {
+                $style = 'rotator_main';
+                $width = 650;
+                $height = 360;
+                $string = '[[{"fid":"' . $file->fid . '","view_mode":"' . $style . '","fields":{"format":"' . $style . '","field_file_image_alt_text[und][0][value]":"","field_file_image_title_text[und][0][value]":"","field_tags[und]":"","field_folder[und]":"1"},"type":"media","attributes":{"class":"media-element file-rotator-main","height":"' . $height . '","width":"' . $width . '"}}]]';
+              }
+              else {
+                $style = 'media_original';
+                $string = '[[{"fid":"' . $file->fid . '","view_mode":"' . $style . '","fields":{"format":"' . $style . '","field_file_image_alt_text[und][0][value]":"","field_file_image_title_text[und][0][value]":"","field_tags[und]":"","field_folder[und]":"1"},"type":"media","attributes":' . json_encode($init_file->attributes) . '}]]';
+              }
+              // End of image info.
+              $body = str_replace('[[' . $match . ']]', $string, $body);
+            }
+            $node->body[LANGUAGE_NONE][0]['value'] = $body;
+            field_attach_presave('node', $node);
+            field_attach_update('node', $node);
+            if (function_exists('drush_log')) {
+              drush_log(t('Proceed node @num with nid @nid.', array(
+                '@num' => $count,
+                '@nid' => $nid
+              )), 'success');
+            }
+          }
+          $count++;
+        }
+      }
+    }
+    $message = t('Processed @count nodes', array('@count' => $count));
+  }
+  else {
+    $message = t('No nodes to update');
+  }
+  // Set message to know how many nodes will be updated.
+  if (function_exists('drush_log')) {
+    drush_log($message, 'success');
+  }
+
+  return 'Successfully updated text_format in all text fields';
+}
+
+/**
+ * Remove trails of nRelate from DB.
+ * @author Martin Malovanets
+ */
+function maf_updates_update_7281() {
+  db_delete('system')
+    ->condition('name', 'maf_nrelate_code')
+    ->execute();
+}
+
+/**
+ * Add empty page callback for taxonomy/term/1546 to fix video player block
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7282() {
+  $callback = (object) array(
+    'path' => 'taxonomy/term/1546',
+    'page_title' => '60 Seconds to Fit',
+    'allow_arguments' => '1',
+  );
+  empty_page_save_callback($callback);
+  return 'Successfully created empty page callback for taxonomy/term/1546';
+}
+
+/**
+ * Enable maf_shakedown_video feature.
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7283() {
+  module_enable(array('maf_shakedown_video'));
+}
+
+/**
+ * Update sailthru default mailing list.
+ * @author Martin Malovanets
+ */
+function maf_updates_update_7284() {
+  variable_set('sailthru_default_list', 'NEWM&FMasterList');
+}
+
+/**
+ * Disable contrib fast_404 module to use maf_fast_404 instead. #MUSCLE-601
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7285() {
+  module_disable(array('fast_404'));
+}
+
+/**
+ * Initialize microsoft_v1 rss feed variables.
+ * @author Sam Thompson
+ */
+function maf_updates_update_7286() {
+  variable_set('microsoft_v1', array(
+    'articles_feed_length' => '20',
+    'slideshows_feed_length' => '20',
+    'videos_feed_length' => '20',
+    'body_text_format' => 'microsoft_v1',
+    'articles_image_style' => 'select',
+    'slideshows_image_style' => 'select',
+    'slideshows_thumbnail_style' => '650x360_rotator',
+    'images_credit_default' => 'AMI',
+    'author_default' => 'AMI',
+    'publisher_default' => 'American Media, Inc.',
+  ));
+
+  variable_set('microsoft_v1_mapping', array(
+    'article' =>
+      array(
+        'articles' => 1,
+        'slideshows' => 0,
+        'videos' => 0,
+        'body_fields' => 'body',
+        'author_field' => 'field_contributor',
+        'images_field' => 'field_rotator_image',
+        'images_nested_field' => 'select',
+        'images_description_field' => 'select',
+        'images_description_field_fallback' => 'field_promo_title',
+        'images_title_field' => 'field_file_image_title_text',
+        'images_title_field_fallback' => 'select',
+        'images_credit_field' => 'select',
+        'images_credit_field_fallback' => 'select',
+        'scrape_images' => 0,
+        'related_field' => 'field_related_articles',
+        'aol_video_id_field' => 'select',
+      ),
+    'blog_entry' =>
+      array(
+        'articles' => 1,
+        'slideshows' => 0,
+        'videos' => 0,
+        'body_fields' => 'body',
+        'author_field' => 'field_contributor',
+        'images_field' => 'field_image',
+        'images_nested_field' => 'select',
+        'images_description_field' => 'select',
+        'images_description_field_fallback' => 'select',
+        'images_title_field' => 'field_file_image_title_text',
+        'images_title_field_fallback' => 'select',
+        'images_credit_field' => 'select',
+        'images_credit_field_fallback' => 'select',
+        'scrape_images' => 0,
+        'related_field' => 'field_related_articles',
+        'aol_video_id_field' => 'select',
+      ),
+    'gallery' =>
+      array(
+        'articles' => 0,
+        'slideshows' => 1,
+        'videos' => 0,
+        'body_fields' => 'body',
+        'author_field' => 'field_contributor',
+        'images_field' => 'field_gallery_images',
+        'images_nested_field' => 'field_image',
+        'images_description_field' => 'field_description',
+        'images_description_field_fallback' => 'field_promo_title',
+        'images_title_field' => 'field_promo_title',
+        'images_title_field_fallback' => 'field_promo_title',
+        'images_credit_field' => 'select',
+        'images_credit_field_fallback' => 'field_photo_credit',
+        'scrape_images' => 0,
+        'related_field' => 'field_related_articles',
+        'aol_video_id_field' => 'select',
+      ),
+    'video' =>
+      array(
+        'articles' => 0,
+        'slideshows' => 0,
+        'videos' => 1,
+        'body_fields' => 'body',
+        'author_field' => 'field_contributor',
+        'images_field' => 'field_rotator_image',
+        'images_nested_field' => 'select',
+        'images_description_field' => 'select',
+        'images_description_field_fallback' => 'select',
+        'images_title_field' => 'field_file_image_title_text',
+        'images_title_field_fallback' => 'field_promo_title',
+        'images_credit_field' => 'select',
+        'images_credit_field_fallback' => 'select',
+        'scrape_images' => 0,
+        'related_field' => 'field_related_articles',
+        'aol_video_id_field' => 'field_aol_video_id',
+      ),
+  ));
+}
+
+/**
+ * TD-117  Fix custom acquia varnish vcl to accept purge request correctly
+ * @author Sasha Levchuk
+ */
+function maf_updates_update_7287() {
+
+  module_enable(array('expire', 'acquia_purge'), FALSE);
+
+}
+
+/**
+ * Fix media images embedded into body field.
+ *
+ * @author Bogdan Tur.
+ */
+function maf_updates_update_7288() {
+  maf_updates_update_7280();
+}
+
+
+/**
+ * update the saved alias for Main NL
+ * @author Vasyl Zhuk
+ */
+function maf_updates_update_7289() {
+  try {
+    db_update('sailthru_lists')
+      ->condition('lid', '1')
+      ->fields(array('list_name' => 'NEWM&FMasterList'))
+      ->execute();
+  } catch (Exceptio $e) {
+    throw new DrupalUpdateException($e->getMessage());
+  }
+  return 'Successfully update NL configuration';
+}
+
+
+/**
+ * Removing a duplicated menu item from the footer menu
+ *
+ * @author Stepan Stepanov.
+ */
+function maf_updates_update_7290() {
+  $tree = menu_tree_all_data('menu-footer-nav');
+
+  foreach ($tree as $id => $item) {
+    if ($item['link']['link_title'] == 'Sitemap') {
+      // print_r($item);
+
+      db_delete('menu_links')->condition('mlid', $item['link']['mlid'])
+        ->execute();
+    }
+  }
+
+  menu_cache_clear_all();
+}
+
+/**
+ * Re-map some microsoft_v1 fields as per qa feedback.
+ * @author Sam T
+ */
+function maf_updates_update_7291() {
+  $microsoft_v1_mapping = variable_get('microsoft_v1_mapping', array());
+
+  $microsoft_v1_mapping['article']['images_description_field'] = 'field_file_image_alt_text';
+  $microsoft_v1_mapping['blog_entry']['images_description_field'] = 'field_file_image_alt_text';
+  $microsoft_v1_mapping['video']['images_description_field'] = 'field_file_image_alt_text';
+
+  variable_set('microsoft_v1_mapping', $microsoft_v1_mapping);
+}
+
+/**
+ * Create redirect for gumgum.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7292() {
+  $redirect = new stdClass();
+
+  redirect_object_prepare(
+    $redirect,
+    array(
+      'source' => 'sites/muscleandfitness.com/themes/muscleandfitness/gumgum.html',
+      'source_options' => array(),
+      'redirect' => 'sites/muscleandfitness.com/modules/custom/maf_ads/templates/gumgum.html',
+      'redirect_options' => array(),
+      'language' => LANGUAGE_NONE,
+    )
+  );
+
+  redirect_save($redirect);
+}
+
+/**
+ * Enable features export nodequeue module.
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7293() {
+  module_enable(array('fe_nodequeue', 'maf_nodequeues'));
+}
+
+/**
+ * Disable maf_favicon module.
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7294() {
+  module_disable(array('maf_favicon'));
+}
+
+/**
+ * Creating a sub-section "Gear" in the "General Categories" taxonomy
+ * @author Stepan Stepanov
+ */
+function maf_updates_update_7295() {
+  $general_categories = taxonomy_vocabulary_machine_name_load('general_categories');
+
+  if (!empty($general_categories)) {
+    $vocabulary_id = $general_categories->vid;
+
+    $term = new stdClass();
+    $term->name = 'Gear';
+    $term->vid = $vocabulary_id;
+    $term->weight = '28';
+
+    taxonomy_term_save($term);
+  }
+}
+
+/**
+ * Clear vocabulary description for 'Video Categories'.
+ * @author Martin Malovanets
+ */
+function maf_updates_update_7296() {
+  $v = taxonomy_vocabulary_machine_name_load('video_categories');
+  $v->description = '';
+  taxonomy_vocabulary_save($v);
+}
+
+/**
+ * Enable dfp modules.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7297() {
+  module_enable(array(
+    'dfp',
+    'dfp_overrides',
+    'dfp_responsive',
+    'dfp_location',
+    'module_filter',
+    'dfp_yieldbot'
+  ));
+}
+
+/**
+ * Disable dart modules.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7298() {
+  module_disable(array(
+    'ami_yieldbot',
+    'maf_dart_tags',
+    'dart_overrides',
+    'dart'
+  ));
+}
+
+/**
+ * Set features default export path and enable dfp settings feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7299() {
+  // Enable feature.
+  module_enable(array('dfp_settings'));
+  // Set default path for features.
+  variable_set('features_default_export_path', 'sites/muscleandfitness.com/modules/features');
+}
+
+/**
+ * Disable diff and migration modules and enable text formats feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7300() {
+  module_disable(array('migration', 'diff', 'schema'));
+  drupal_uninstall_modules(array('migration', 'diff', 'schema'));
+  // Enable text formats feature.
+  module_enable(array('text_formats'));
+}
+
+/**
+ * Enable muscleandfitness theme settings feature.
+ *
+ * @author Victor Pavlov
+ */
+function maf_updates_update_7301() {
+  // Enable feature.
+  module_enable(array('maf_theme_settings'));
+}
+
+/**
+ * Enable custom blocks for front page.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7302() {
+  module_enable(array('maf_homepage_blocks'));
+}
+
+/**
+ * Enable MAF homepage feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7303() {
+  module_enable(array('maf_homepage'));
+}
+
+/**
+ * Delete empty page callbacks for videos sub channels.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7304() {
+  $cids = array(19, 22, 23, 24, 21, 20, 18, 17, 16, 15, 14, 13, 25, 26,);
+  foreach ($cids as $cid) {
+    empty_page_delete_callback($cid);
+  }
+  // Clear menu cache.
+  empty_page_clear_menu_cache();
+}
+
+/**
+ * Enable channels contexts feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7305() {
+  module_enable(array('main_channels_contexts'));
+}
+
+/**
+ * Delete dart keyword field.
+ * revert wonders CT feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7306() {
+  $features = array(
+    'maf_exercise',
+    'wonders_content_types',
+    'maf_node_contexts',
+    'maf_content_types'
+  );
+  foreach ($features as $item) {
+    $feature = features_get_features($item);
+    if (!empty($feature->info['features'])) {
+      $components = array_keys($feature->info['features']);
+      features_revert(array($item => $components));
+    }
+  }
+
+  field_delete_field('field_dart_keyword');
+}
+
+/**
+ * Enable modules according to acquia advices.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7307() {
+  module_enable(array(
+    'seckit',
+    'username_enumeration_prevention',
+    'views_litepager',
+  ));
+}
+
+/**
+ * Enable most_recent feature.
+ * Disable views_ui.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7308() {
+  module_enable(array('most_recent'));
+  module_disable(array('views_ui'));
+}
+
+/**
+ * Enable mobile_menu_context feature.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7309() {
+  module_enable(array('mobile_menu_context'));
+}
+
+/**
+ * Enable maf dfp hel[er module.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7310() {
+  module_enable(array('maf_dfp'));
+}
+
+/**
+ * Delete overrides ported from dart.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7311() {
+  db_delete('dfp_tag_override')->execute();
+}
+
+/**
+ * Enable maf_404 module.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7312() {
+  module_enable(array('maf_404'));
+}
+
+/**
+ * Enable dfp_amobee, which replaces dfp_location and maf_dfp
+ *
+ * @author Nate Andersen
+ */
+function maf_updates_update_7313() {
+  module_enable(array('dfp_amobee'));
+  module_disable(array('dfp_location', 'maf_dfp'));
+}
+
+/**
+ * disable dfp_yieldbot for amobee launch
+ *
+ * @author Nate Andersen
+ */
+function maf_updates_update_7314() {
+  module_disable(array('dfp_yieldbot'));
+}
+
+
+/**
+ * Moving right rail contexts to database #MUSCLE-657
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7315() {
+
+  // Saving right rail contexts to DB
+  module_load_include('inc', 'maf_updates', 'sources/maf_updates.right_rail_contexts');
+  module_load_include('inc', 'ctools', 'includes/export');
+  $export = maf_updates_context_default_contexts();
+  foreach ($export as $object) {
+    db_delete('context')
+      ->condition('name', $object->name)
+      ->execute();
+    ctools_export_crud_save('context', $object);
+  }
+}
+
+/**
+ * MUSCLE-657 create values for certification field.
+ * @author Martin Malovanets
+ */
+function maf_updates_update_7316() {
+  $vocab = taxonomy_vocabulary_machine_name_load('certification');
+  if (!$vocab) {
+    $vocab = new stdClass;
+    $vocab->name = 'Certification';
+    $vocab->machine_name = 'certification';
+    $vocab->description = 'Certification field values for the author vocabulary';
+    taxonomy_vocabulary_save($vocab);
+  }
+  $terms = array(
+    'CSCS',
+    'CPT',
+    'PhD',
+    'MD',
+    'NSCA-CPT',
+    'CPPS',
+    'CSCS*D',
+    'FISSN',
+  );
+  foreach ($terms as $weight => $name) {
+    $term = new stdClass;
+    $term->vid = $vocab->vid;
+    $term->weight = $weight;
+    $term->name = $name;
+    taxonomy_term_save($term);
+  }
+}
+
+/**
+ * Set dfp path overrides.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7317() {
+  if (db_table_exists('dfp_tag_override')) {
+    $data = array(
+      'From the editor' => 'a:3:{s:10:"path_types";a:1:{s:5:"paths";s:33:"news-and-features/from-the-editor";}s:9:"overrides";a:2:{s:12:"unit_pattern";a:1:{s:8:"override";s:50:"muscleandfitness/news-and-features/from-the-editor";}s:9:"targeting";a:1:{s:8:"settings";a:3:{i:0;a:3:{s:6:"target";s:2:"s1";s:5:"value";s:17:"news-and-features";s:6:"global";s:1:"1";}i:1;a:3:{s:6:"target";s:2:"s2";s:5:"value";s:15:"from-the-editor";s:6:"global";s:1:"1";}i:2;a:3:{s:6:"target";s:2:"kw";s:5:"value";s:5:"shawn";s:6:"global";s:1:"1";}}}}s:8:"dfp_tags";a:1:{s:4:"tags";a:18:{s:13:"bottom_banner";s:13:"bottom_banner";s:25:"bottom_banner_extras_page";s:25:"bottom_banner_extras_page";s:7:"content";s:7:"content";s:12:"interstitial";s:12:"interstitial";s:24:"interstitial_extras_page";s:24:"interstitial_extras_page";s:19:"mobile_above_footer";s:19:"mobile_above_footer";s:20:"mobile_below_content";s:20:"mobile_below_content";s:19:"mobile_interstitial";s:19:"mobile_interstitial";s:10:"mobile_top";s:10:"mobile_top";s:16:"right_rail_first";s:16:"right_rail_first";s:28:"right_rail_first_extras_page";s:28:"right_rail_first_extras_page";s:17:"right_rail_second";s:17:"right_rail_second";s:29:"right_rail_second_extras_page";s:29:"right_rail_second_extras_page";s:23:"right_subscribe_300x195";s:23:"right_subscribe_300x195";s:10:"top_banner";s:10:"top_banner";s:22:"top_banner_extras_page";s:22:"top_banner_extras_page";s:9:"wallpaper";s:9:"wallpaper";s:21:"wallpaper_extras_page";s:21:"wallpaper_extras_page";}}}',
+      'Model Search Contest' => 'a:3:{s:10:"path_types";a:1:{s:5:"paths";s:11:"node/7045/*";}s:9:"overrides";a:2:{s:12:"unit_pattern";a:1:{s:8:"override";s:27:"muscleanditness/modelsearch";}s:9:"targeting";a:1:{s:8:"settings";a:1:{i:0;a:3:{s:6:"target";s:2:"kw";s:5:"value";s:13:"malemodel2013";s:6:"global";s:1:"1";}}}}s:8:"dfp_tags";a:1:{s:4:"tags";a:18:{s:13:"bottom_banner";s:13:"bottom_banner";s:25:"bottom_banner_extras_page";s:25:"bottom_banner_extras_page";s:7:"content";s:7:"content";s:12:"interstitial";s:12:"interstitial";s:24:"interstitial_extras_page";s:24:"interstitial_extras_page";s:19:"mobile_above_footer";s:19:"mobile_above_footer";s:20:"mobile_below_content";s:20:"mobile_below_content";s:19:"mobile_interstitial";s:19:"mobile_interstitial";s:10:"mobile_top";s:10:"mobile_top";s:16:"right_rail_first";s:16:"right_rail_first";s:28:"right_rail_first_extras_page";s:28:"right_rail_first_extras_page";s:17:"right_rail_second";s:17:"right_rail_second";s:29:"right_rail_second_extras_page";s:29:"right_rail_second_extras_page";s:23:"right_subscribe_300x195";s:23:"right_subscribe_300x195";s:10:"top_banner";s:10:"top_banner";s:22:"top_banner_extras_page";s:22:"top_banner_extras_page";s:9:"wallpaper";s:9:"wallpaper";s:21:"wallpaper_extras_page";s:21:"wallpaper_extras_page";}}}',
+      'Shakedown' => 'a:3:{s:10:"path_types";a:1:{s:5:"paths";s:30:"videos/nutrition/the-shakedown";}s:9:"overrides";a:2:{s:12:"unit_pattern";a:1:{s:8:"override";s:47:"muscleandfitness/videos/nutrition-the-shakedown";}s:9:"targeting";a:1:{s:8:"settings";a:3:{i:0;a:3:{s:6:"target";s:2:"s1";s:5:"value";s:6:"videos";s:6:"global";s:1:"1";}i:1;a:3:{s:6:"target";s:2:"s2";s:5:"value";s:23:"nutrition-the-shakedown";s:6:"global";s:1:"1";}i:2;a:3:{s:6:"target";s:2:"kw";s:5:"value";s:6:"813BSN";s:6:"global";s:1:"1";}}}}s:8:"dfp_tags";a:1:{s:4:"tags";a:18:{s:13:"bottom_banner";s:13:"bottom_banner";s:25:"bottom_banner_extras_page";s:25:"bottom_banner_extras_page";s:7:"content";s:7:"content";s:12:"interstitial";s:12:"interstitial";s:24:"interstitial_extras_page";s:24:"interstitial_extras_page";s:19:"mobile_above_footer";s:19:"mobile_above_footer";s:20:"mobile_below_content";s:20:"mobile_below_content";s:19:"mobile_interstitial";s:19:"mobile_interstitial";s:10:"mobile_top";s:10:"mobile_top";s:16:"right_rail_first";s:16:"right_rail_first";s:28:"right_rail_first_extras_page";s:28:"right_rail_first_extras_page";s:17:"right_rail_second";s:17:"right_rail_second";s:29:"right_rail_second_extras_page";s:29:"right_rail_second_extras_page";s:23:"right_subscribe_300x195";s:23:"right_subscribe_300x195";s:10:"top_banner";s:10:"top_banner";s:22:"top_banner_extras_page";s:22:"top_banner_extras_page";s:9:"wallpaper";s:9:"wallpaper";s:21:"wallpaper_extras_page";s:21:"wallpaper_extras_page";}}}',
+    );
+    // Delete dfp_tag_overrides.
+    db_delete('dfp_tag_override')
+      ->condition('name', array_keys($data), 'IN')
+      ->execute();
+
+    foreach ($data as $key => $value) {
+      $value = unserialize($value);
+      $item = array(
+        'name' => $key,
+        'description' => '',
+        'plugin_type' => 'dfp_path_override',
+        'dfp_settings' => $value,
+      );
+      drupal_write_record('dfp_tag_override', $item);
+    }
+  }
+}
+
+/**
+ * Set dfp path overrides.
+ *
+ * @author Bogdan Tur
+ */
+function maf_updates_update_7318() {
+  if (db_table_exists('dfp_tag_override')) {
+    $data = array(
+      '60 seconds videos' => array(
+        'path_types' => array(
+          'paths' => 'videos/60-seconds-fit/*
+node/10501
+node/10501/*
+60secondsask
+node/10326
+node/10326/*',
+        ),
+        'overrides' => array(
+          'unit_pattern' => array(
+            'override' => 'muscleandfitness/[node:dfp_field_primary_cat]',
+          ),
+          'targeting' => array(
+            'settings' => array(
+              0 => array(
+                'target' => 's1',
+                'value' => '[node:dfp_field_primary_cat_0]',
+                'global' => '1',
+              ),
+              1 => array(
+                'target' => 's2',
+                'value' => '[node:dfp_field_primary_cat_1]',
+                'global' => '1',
+              ),
+              2 => array(
+                'target' => 'pid',
+                'value' => 'nid_[node:nid]',
+                'global' => '1',
+              ),
+              3 => array(
+                'target' => 'ctype',
+                'value' => '[node:type]',
+                'global' => '1',
+              ),
+              4 => array(
+                'target' => 'topic',
+                'value' => '[node:dfp_field_topics]',
+                'global' => '1',
+              ),
+              5 => array(
+                'target' => 'kw',
+                'value' => '60secBPI',
+                'global' => '1',
+              ),
+              6 => array(
+                'target' => 'pv',
+                'value' => 'pv',
+                'global' => '1',
+              ),
+              7 => array(
+                'target' => 'curl',
+                'value' => '[dfp_amobee:curl]',
+                'global' => '1',
+              ),
+            ),
+          ),
+        ),
+        'dfp_tags' => array(
+          'tags' => array(
+            'bottom_banner' => 'bottom_banner',
+            'bottom_banner_extras_page' => 'bottom_banner_extras_page',
+            'content' => 'content',
+            'interstitial' => 'interstitial',
+            'interstitial_extras_page' => 'interstitial_extras_page',
+            'mobile_above_footer' => 'mobile_above_footer',
+            'mobile_below_content' => 'mobile_below_content',
+            'mobile_interstitial' => 'mobile_interstitial',
+            'mobile_top' => 'mobile_top',
+            'right_rail_first' => 'right_rail_first',
+            'right_rail_first_extras_page' => 'right_rail_first_extras_page',
+            'right_rail_second' => 'right_rail_second',
+            'right_rail_second_extras_page' => 'right_rail_second_extras_page',
+            'right_subscribe_300x195' => 'right_subscribe_300x195',
+            'top_banner' => 'top_banner',
+            'top_banner_extras_page' => 'top_banner_extras_page',
+            'wallpaper' => 'wallpaper',
+            'wallpaper_extras_page' => 'wallpaper_extras_page',
+          ),
+        ),
+      ),
+      'Arnold Series' => array(
+        'path_types' => array(
+          'paths' => 'arnoldseries
+node/7586/*
+node/7586',
+        ),
+        'overrides' => array(
+          'unit_pattern' => array(
+            'override' => 'muscleandfitness/arnoldseries',
+          ),
+          'targeting' => array(
+            'settings' => array(
+              0 => array(
+                'target' => 'kw',
+                'value' => 'arnoldseries',
+                'global' => '1',
+              ),
+            ),
+          ),
+        ),
+        'dfp_tags' => array(
+          'tags' => array(
+            'bottom_banner' => 'bottom_banner',
+            'bottom_banner_extras_page' => 'bottom_banner_extras_page',
+            'content' => 'content',
+            'interstitial' => 'interstitial',
+            'interstitial_extras_page' => 'interstitial_extras_page',
+            'mobile_above_footer' => 'mobile_above_footer',
+            'mobile_below_content' => 'mobile_below_content',
+            'mobile_interstitial' => 'mobile_interstitial',
+            'mobile_top' => 'mobile_top',
+            'right_rail_first' => 'right_rail_first',
+            'right_rail_first_extras_page' => 'right_rail_first_extras_page',
+            'right_rail_second' => 'right_rail_second',
+            'right_rail_second_extras_page' => 'right_rail_second_extras_page',
+            'right_subscribe_300x195' => 'right_subscribe_300x195',
+            'top_banner' => 'top_banner',
+            'top_banner_extras_page' => 'top_banner_extras_page',
+            'wallpaper' => 'wallpaper',
+            'wallpaper_extras_page' => 'wallpaper_extras_page',
+          ),
+        ),
+      ),
+      'RHC' => array(
+        'path_types' => array(
+          'paths' => 'galleries/rock-hard-supplement-plan
+node/6744/*
+contest-info/6744/*
+contest/rock-hard-challenge-2014
+node/8234/*
+contest/rock-hard-challenge-2013
+contest-info/8234/*',
+        ),
+        'overrides' => array(
+          'unit_pattern' => array(
+            'override' => 'muscleandfitness/rhc2014/index',
+          ),
+          'targeting' => array(
+            'settings' => array(
+              0 => array(
+                'target' => 's1',
+                'value' => 'rhc2014',
+                'global' => '1',
+              ),
+              1 => array(
+                'target' => 's2',
+                'value' => 'index',
+                'global' => '1',
+              ),
+              2 => array(
+                'target' => 'kw',
+                'value' => 'rhc2014',
+                'global' => '1',
+              ),
+            ),
+          ),
+        ),
+        'dfp_tags' => array(
+          'tags' => array(
+            'bottom_banner' => 'bottom_banner',
+            'bottom_banner_extras_page' => 'bottom_banner_extras_page',
+            'content' => 'content',
+            'interstitial' => 'interstitial',
+            'interstitial_extras_page' => 'interstitial_extras_page',
+            'mobile_above_footer' => 'mobile_above_footer',
+            'mobile_below_content' => 'mobile_below_content',
+            'mobile_interstitial' => 'mobile_interstitial',
+            'mobile_top' => 'mobile_top',
+            'right_rail_first' => 'right_rail_first',
+            'right_rail_first_extras_page' => 'right_rail_first_extras_page',
+            'right_rail_second' => 'right_rail_second',
+            'right_rail_second_extras_page' => 'right_rail_second_extras_page',
+            'right_subscribe_300x195' => 'right_subscribe_300x195',
+            'top_banner' => 'top_banner',
+            'top_banner_extras_page' => 'top_banner_extras_page',
+            'wallpaper' => 'wallpaper',
+            'wallpaper_extras_page' => 'wallpaper_extras_page',
+          ),
+        ),
+      ),
+      'Workout 101' => array(
+        'path_types' => array(
+          'paths' => 'training/workout-101/*
+videos/workout-101
+training/workout-101-articles
+workout-101-elite-training-programs',
+        ),
+        'overrides' => array(
+          'unit_pattern' => array(
+            'override' => 'muscleandfitness/training/workout-101',
+          ),
+          'targeting' => array(
+            'settings' => array(
+              0 => array(
+                'target' => 's1',
+                'value' => 'training',
+                'global' => '1',
+              ),
+              1 => array(
+                'target' => 's2',
+                'value' => 'workout-101',
+                'global' => '1',
+              ),
+              2 => array(
+                'target' => 'kw',
+                'value' => 'workout101',
+                'global' => '1',
+              ),
+            ),
+          ),
+        ),
+        'dfp_tags' => array(
+          'tags' => array(
+            'bottom_banner' => 'bottom_banner',
+            'bottom_banner_extras_page' => 'bottom_banner_extras_page',
+            'content' => 'content',
+            'interstitial' => 'interstitial',
+            'interstitial_extras_page' => 'interstitial_extras_page',
+            'mobile_above_footer' => 'mobile_above_footer',
+            'mobile_below_content' => 'mobile_below_content',
+            'mobile_interstitial' => 'mobile_interstitial',
+            'mobile_top' => 'mobile_top',
+            'right_rail_first' => 'right_rail_first',
+            'right_rail_first_extras_page' => 'right_rail_first_extras_page',
+            'right_rail_second' => 'right_rail_second',
+            'right_rail_second_extras_page' => 'right_rail_second_extras_page',
+            'right_subscribe_300x195' => 'right_subscribe_300x195',
+            'top_banner' => 'top_banner',
+            'top_banner_extras_page' => 'top_banner_extras_page',
+            'wallpaper' => 'wallpaper',
+            'wallpaper_extras_page' => 'wallpaper_extras_page',
+          ),
+        ),
+      ),
+      'XtremeTraining' => array(
+        'path_types' => array(
+          'paths' => 'videos/Xtreme-Training
+videos/xtreme-high-intensity-training
+videos/performance-training',
+        ),
+        'overrides' => array(
+          'unit_pattern' => array(
+            'override' => 'muscleandfitness/videos/xtreme-training',
+          ),
+          'targeting' => array(
+            'settings' => array(
+              0 => array(
+                'target' => 's1',
+                'value' => 'videos',
+                'global' => '1',
+              ),
+              1 => array(
+                'target' => 's2',
+                'value' => 'xtreme-training',
+                'global' => '1',
+              ),
+              2 => array(
+                'target' => 'kw',
+                'value' => 'MHP2013',
+                'global' => '1',
+              ),
+            ),
+          ),
+        ),
+        'dfp_tags' => array(
+          'tags' => array(
+            'bottom_banner' => 'bottom_banner',
+            'bottom_banner_extras_page' => 'bottom_banner_extras_page',
+            'content' => 'content',
+            'interstitial' => 'interstitial',
+            'interstitial_extras_page' => 'interstitial_extras_page',
+            'mobile_above_footer' => 'mobile_above_footer',
+            'mobile_below_content' => 'mobile_below_content',
+            'mobile_interstitial' => 'mobile_interstitial',
+            'mobile_top' => 'mobile_top',
+            'right_rail_first' => 'right_rail_first',
+            'right_rail_first_extras_page' => 'right_rail_first_extras_page',
+            'right_rail_second' => 'right_rail_second',
+            'right_rail_second_extras_page' => 'right_rail_second_extras_page',
+            'right_subscribe_300x195' => 'right_subscribe_300x195',
+            'top_banner' => 'top_banner',
+            'top_banner_extras_page' => 'top_banner_extras_page',
+            'wallpaper' => 'wallpaper',
+            'wallpaper_extras_page' => 'wallpaper_extras_page',
+          ),
+        ),
+      ),
+    );
+    // Delete dfp_tag_overrides.
+    db_delete('dfp_tag_override')
+      ->condition('name', array_keys($data), 'IN')
+      ->execute();
+
+    foreach ($data as $key => $value) {
+      $item = array(
+        'name' => $key,
+        'description' => '',
+        'plugin_type' => 'dfp_path_override',
+        'dfp_settings' => $value,
+      );
+      drupal_write_record('dfp_tag_override', $item);
+    }
+  }
+}
+
+/**
+ * Enables sailthru_provider module and maf_sailthru_config feature.
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7319() {
+  module_enable(array('sailthru_provider'));
+  module_enable(array('maf_sailthru_config'));
+  variable_set('sailthru_basic_form_type', FALSE);
+}
+
+/**
+ * Removes the hot topic field from the ingredient vocabulary
+ * @author Juan Lopez
+ */
+function maf_updates_update_7320() {
+  // Get the fields info array for the given content type.
+  $field_instance = field_info_instances('taxonomy_term', 'ingredient');
+  $instance = $field_instance['field_hot_topic'];
+  // Delete the Hot Topic field instance.
+  field_delete_instance($instance);
+}
+
+/**
+ * Set site_slogan variable
+ * @author Anton Trokhymenko
+ */
+function maf_updates_update_7321() {
+  variable_set('site_slogan', 'Muscle & Fitness - Workouts, Nutrition Tips, Supplements & Advice');
+}
+
+/**
+ * Removes the hot topic field from the ingredient vocabulary after update overwriten
+ * @author Juan Lopez
+ */
+function maf_updates_update_7322() {
+  // Get the fields info array for the given content type.
+  $field_instance = field_info_instances('taxonomy_term', 'ingredient');
+  $instance = $field_instance['field_hot_topic'];
+  // Delete the Hot Topic field instance.
+  field_delete_instance($instance);
+}
+
+/**
+ * Removes the hot topic field from the ingredient vocabulary after update overwriten
+ * @author Juan Lopez
+ */
+function maf_updates_update_7323() {
+  // Get the fields info array for the given content type.
+  $field_instance = field_info_instances('taxonomy_term', 'ingredient');
+  $instance = $field_instance['field_hot_topic'];
+  // Delete the Hot Topic field instance.
+  field_delete_instance($instance);
+}
+
+/**
+ * Enables  maf_default_format module
+ * @author Juan Lopez
+ */
+function maf_updates_update_7324() {
+  module_enable(array('maf_default_format'));
+}
+
+/**
+ * Enables  Remove promo fields not needed
+ * @author Juan Lopez
+ */
+function maf_updates_update_7325() {
+  field_delete_field('field_house_promo_ad_634x158_1');
+  field_delete_field('field_house_promo_ad_634x158_2');
+  field_delete_field('field_house_promo_ad_634x158_3');
+  field_delete_field('field_mobile_promo_ad_634x158_1');
+  field_delete_field('field_mobile_promo_ad_634x158_2');
+  field_delete_field('field_mobile_promo_ad_634x158_3');
+  field_purge_batch();
+}
+
+/**
+ * Enables  maf_default_format module
+ * @author Omar Zorrilla LLerena
+ */
+function maf_updates_update_7326() {
+  module_enable(array('maf_redirects'));
+  module_enable(array('maf_sponsored_package_header'));
+}
